@@ -1,3 +1,22 @@
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+.env.production.local
+
+# Dependencies
+node_modules
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+
+# Build outputs
+dist
+dist-ssr
+build
+*.tsbuildinfo
+
 # Logs
 logs
 *.log
@@ -7,18 +26,65 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
+# Editor & IDE
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
+*.swp
+*.swo
+*.sw?
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+
+# OS Files
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
+.DocumentRevisions-journal
+.TemporaryItems
+.VolumeIcon.icns
+.Spotlight-V100
+.Trashes
+
+# Temporary files
+*.local
+*.tmp
+tmp/
+temp/
+cache/
+.cache
+
+# IDE specific
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.code-workspace
+
+# Supabase
+supabase/.env
+supabase/.env.local
+supabase/migrations/
+!supabase/migrations/.gitkeep
+
+# OS-specific
+.env.example.local
+*.pem
+*.key
+credentials.json
+secrets.json
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+.turbo/
+dist-types/

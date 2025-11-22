@@ -28,22 +28,15 @@ const Landing = () => {
         </div>
       </nav>
 
-      {/* Hero Section with Video Background */}
+      {/* Hero Section with Image Background */}
       <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-32">
-        {/* Video Background */}
+        {/* Image Background */}
         <div className="absolute inset-0 w-full h-full">
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="w-full h-full object-cover opacity-20"
-          >
-            <source
-              src="/3018669-hd_1920_1080_24fps.mp4"
-              type="video/mp4"
-            />
-          </video>
+          <img
+            src="/pexels-freestockpro-1008155.jpg"
+            alt="Travel background"
+            className="w-full h-full object-cover opacity-25"
+          />
           <div className="absolute inset-0 bg-gradient-to-b from-white/50 via-white/40 to-background"></div>
         </div>
 
