@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 
 const AVAILABLE_INTERESTS = [
   'Fine Dining', 'Street Food', 'Hiking', 'Museums', 
-  'Nightlife', 'Coffee', 'Shopping', 'Photography', 
+  'Nightlife', 'Coffee', 'Shopping', 
   'Live Music', 'History', 'Architecture', 'Nature',
   'Family Friendly', 'For Kids', 'Parks & Playgrounds'
 ];

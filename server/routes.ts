@@ -23,7 +23,6 @@ const interestMapping: Record<string, { terms: string[]; categories: string[] }>
   "Nightlife": { terms: ["bars", "nightclubs", "cocktail bars"], categories: ["nightlife", "bars", "clubs"] },
   "Coffee": { terms: ["coffee shops", "cafes"], categories: ["coffee", "cafes"] },
   "Shopping": { terms: ["shopping", "boutiques", "shopping centers"], categories: ["shopping", "malls"] },
-  "Photography": { terms: ["scenic views", "landmarks", "viewpoints"], categories: ["landmarks", "parks"] },
   "Live Music": { terms: ["live music", "music venues", "concerts"], categories: ["musicvenues", "nightlife"] },
   "History": { terms: ["historical sites", "historical tours", "heritage"], categories: ["landmarks", "tours"] },
   "Architecture": { terms: ["architecture", "architectural tours", "buildings"], categories: ["landmarks", "tours"] },
@@ -422,11 +421,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           customTags.push('Nightlife');
         }
 
-        // Photography tag (scenic/visual places)
+        // Culture tag (scenic/visual places)
         if (
           /landmark|scenic|viewpoint|park|museum|gallery|historic|architecture|monument|observation|tower|bridge|garden|botanical|beach|waterfront|overlook|vista/i.test(allCategories)
         ) {
-          customTags.push('Photography');
+          customTags.push('Culture');
         }
 
         return {

@@ -27,7 +27,7 @@ The app is built around the Yelp Fusion API:
 ## Features
 
 - **Group-aware recommendations** - Add travel companions and their interests, get places that work for everyone
-- **Smart filtering** - Filter by Food, Activities, Nightlife, Photography without extra API calls
+- **Smart filtering** - Filter by Popular, Top Rated, Together, Food, Activities, Nightlife, Culture, Nature
 - **Trip planner** - Drag-and-drop itinerary with calculated walking times between places
 - **Favorites & visited tracking** - Save places, mark as visited, track progress
 - **Multi-trip support** - Separate trips with different companions and contexts

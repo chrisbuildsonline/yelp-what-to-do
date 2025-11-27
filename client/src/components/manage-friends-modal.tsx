@@ -20,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const INTERESTS = [
   'Fine Dining', 'Street Food', 'Hiking', 'Museums', 'Nightlife',
-  'Coffee', 'Shopping', 'Photography', 'Live Music', 'History',
+  'Coffee', 'Shopping', 'Live Music', 'History',
   'Architecture', 'Nature', 'Family Friendly', 'For Kids', 'Parks & Playgrounds',
 ];
 
