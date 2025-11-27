@@ -22,7 +22,9 @@ function Router() {
   return (
     <Switch>
       <Route path="/landing" component={Landing} />
-      <Route path="/auth" component={Auth} />
+      <Route path="/auth">
+        <Redirect to="/landing" />
+      </Route>
       <Route path="/onboarding">
         {isAuthenticated ? <Onboarding /> : <Redirect to="/landing" />}
       </Route>

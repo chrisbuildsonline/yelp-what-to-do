@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { MapPin, Compass, ArrowRight, Star, Heart, Coffee } from "lucide-react";
@@ -6,8 +7,11 @@ import friendsDiningImage from '@assets/generated_images/friends_dining_at_night
 import scenicHikingImage from '@assets/generated_images/scenic_hiking_trail.png';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { AuthModal } from "@/components/auth-modal";
 
 export default function Landing() {
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+
   const container = {
     hidden: { opacity: 0 },
     show: {
@@ -36,14 +40,18 @@ export default function Landing() {
           </span>
         </div>
         <div className="flex items-center gap-4">
-          <Link href="/auth">
-            <Button variant="ghost" className="font-medium hover:bg-accent/50">Log in</Button>
-          </Link>
-          <Link href="/auth">
-            <Button className="rounded-full font-bold px-6 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all">
-              Sign up
-            </Button>
-          </Link>
+          <button
+            onClick={() => setAuthModalOpen(true)}
+            className="px-4 py-2 font-medium hover:bg-accent/50 rounded-lg transition-colors"
+          >
+            Log in
+          </button>
+          <Button
+            onClick={() => setAuthModalOpen(true)}
+            className="rounded-full font-bold px-6 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all"
+          >
+            Sign up
+          </Button>
         </div>
       </header>
 
@@ -75,12 +83,14 @@ export default function Landing() {
               </motion.p>
               
               <motion.div variants={item} className="flex flex-wrap gap-4">
-                <Link href="/auth">
-                  <Button size="lg" className="h-14 px-8 rounded-full text-lg shadow-xl shadow-primary/20 hover:translate-y-[-2px] transition-all">
-                    Start Planning
-                    <ArrowRight className="ml-2" size={20} />
-                  </Button>
-                </Link>
+                <Button
+                  onClick={() => setAuthModalOpen(true)}
+                  size="lg"
+                  className="h-14 px-8 rounded-full text-lg shadow-xl shadow-primary/20 hover:translate-y-[-2px] transition-all"
+                >
+                  Start Planning
+                  <ArrowRight className="ml-2" size={20} />
+                </Button>
                 <Button size="lg" variant="outline" className="h-14 px-8 rounded-full text-lg bg-white/50 backdrop-blur-sm border-2 hover:bg-white">
                   How it works
                 </Button>
@@ -240,11 +250,14 @@ export default function Landing() {
               <p className="text-primary-foreground/80 text-xl max-w-2xl mx-auto">
                 Join thousands of foodies and travelers finding the best spots with Yelp! What to do?
               </p>
-              <Link href="/auth">
-                <Button size="lg" variant="secondary" className="h-16 px-10 rounded-full text-xl font-bold shadow-2xl hover:scale-105 transition-transform text-primary bg-white hover:bg-white/90">
-                  Get Started for Free
-                </Button>
-              </Link>
+              <Button
+                onClick={() => setAuthModalOpen(true)}
+                size="lg"
+                variant="secondary"
+                className="h-16 px-10 rounded-full text-xl font-bold shadow-2xl hover:scale-105 transition-transform text-primary bg-white hover:bg-white/90"
+              >
+                Get Started for Free
+              </Button>
             </div>
           </div>
         </section>
@@ -253,6 +266,8 @@ export default function Landing() {
       <footer className="py-12 text-center text-muted-foreground text-sm border-t border-border/40">
         <p>© 2025 Yelp! What to do? - AI Powered Travel</p>
       </footer>
+
+      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </div>
   );
 }
