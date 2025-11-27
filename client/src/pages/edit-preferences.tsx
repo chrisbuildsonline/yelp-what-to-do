@@ -7,9 +7,19 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, MapPin, Heart, Users, Plus, X } from 'lucide-react';
+import { ArrowLeft, MapPin, Heart, Users, Plus, X, AlertTriangle } from 'lucide-react';
 import { LocationAutocomplete } from '@/components/location-autocomplete';
 import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const AVAILABLE_INTERESTS = [
   'Fine Dining', 'Street Food', 'Hiking', 'Museums', 
@@ -29,13 +39,26 @@ export default function EditPreferences() {
   const [newCompanionInterests, setNewCompanionInterests] = useState<string[]>([]);
   const [newCompanionFamilyFriendly, setNewCompanionFamilyFriendly] = useState(false);
   const [newCompanionKidsAge, setNewCompanionKidsAge] = useState<number[]>([]);
+  const [showLocationWarning, setShowLocationWarning] = useState(false);
+  const [pendingLocation, setPendingLocation] = useState('');
 
   useEffect(() => {
     setLocalProfile(profile);
   }, [profile]);
 
   const handleLocationChange = (location: string) => {
-    setLocalProfile(prev => ({ ...prev, country: location }));
+    // Check if location is actually changing
+    if (location !== profile.country) {
+      setPendingLocation(location);
+      setShowLocationWarning(true);
+    } else {
+      setLocalProfile(prev => ({ ...prev, country: location }));
+    }
+  };
+
+  const confirmLocationChange = () => {
+    setLocalProfile(prev => ({ ...prev, country: pendingLocation }));
+    setShowLocationWarning(false);
   };
 
   const handleToggleInterest = (interest: string) => {
@@ -133,8 +156,32 @@ export default function EditPreferences() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-border/50">
+    <>
+      <AlertDialog open={showLocationWarning} onOpenChange={setShowLocationWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-orange-500" />
+              Change Trip Location?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Changing your city will fetch new Yelp recommendations and may affect your saved places.
+              Your current itinerary and favorites will remain, but new search results will be based on <strong>{pendingLocation}</strong>.
+              <br /><br />
+              Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmLocationChange}>
+              Yes, Change Location
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div className="min-h-screen bg-gray-50">
+        <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-border/50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button
@@ -475,5 +522,6 @@ export default function EditPreferences() {
         </div>
       </main>
     </div>
+    </>
   );
 }

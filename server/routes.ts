@@ -221,22 +221,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Yelp API Routes
+  // Yelp API Routes - Enhanced with user profile personalization
   app.get("/api/yelp/search", async (req, res) => {
     try {
-      const { location, term, categories, limit = 20 } = req.query;
+      const { 
+        location, 
+        term, 
+        categories, 
+        limit = 50,
+        interests,
+        travelingWithKids,
+        kidsAges,
+        groupSize,
+        companionAges,
+        userAge
+      } = req.query;
 
       if (!location || typeof location !== "string") {
         return res.status(400).json({ error: "location parameter is required" });
-      }
-
-      const searchTerm = (term as string) || "restaurants";
-      const searchCategories = (categories as string) || "";
-
-      // Check cache first
-      const cachedResults = getCachedYelpResults(location, searchTerm, searchCategories);
-      if (cachedResults) {
-        return res.json(cachedResults);
       }
 
       const apiKey = process.env.YELP_API_KEY;
@@ -245,23 +247,170 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Yelp API key not configured" });
       }
 
-      const response = await axios.get("https://api.yelp.com/v3/businesses/search", {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-        },
+      // Build smart search terms based on user profile
+      const interestsList = interests ? (interests as string).split(',').filter(Boolean) : [];
+      const hasKids = travelingWithKids === 'true';
+      const kidsAgesList = kidsAges ? (kidsAges as string).split(',').map(Number).filter(Boolean) : [];
+      const groupSizeNum = parseInt(groupSize as string) || 1;
+      const companionAgesList = companionAges ? (companionAges as string).split(',').map(Number).filter(Boolean) : [];
+      const userAgeNum = parseInt(userAge as string) || 30;
+
+      // Build personalized search term
+      let searchTerm = (term as string) || "";
+      let searchCategories = (categories as string) || "";
+      const additionalAttributes: string[] = [];
+
+      // Family-friendly modifications
+      if (hasKids) {
+        additionalAttributes.push("family-friendly");
+        if (kidsAgesList.some(age => age < 5)) {
+          additionalAttributes.push("kid-friendly");
+        }
+        if (kidsAgesList.some(age => age >= 5 && age <= 12)) {
+          additionalAttributes.push("good for kids");
+        }
+      }
+
+      // Group size considerations
+      if (groupSizeNum >= 6) {
+        additionalAttributes.push("good for groups");
+      }
+
+      // Age-based preferences
+      const allAges = [userAgeNum, ...companionAgesList].filter(Boolean);
+      const avgAge = allAges.length > 0 ? allAges.reduce((a, b) => a + b, 0) / allAges.length : 30;
+      
+      if (avgAge < 25) {
+        // Younger crowd - trendy, hip places
+        if (!searchTerm) searchTerm = "trendy popular";
+      } else if (avgAge > 55) {
+        // Older crowd - quieter, more refined
+        additionalAttributes.push("quiet");
+      }
+
+      // Build the final search term with context
+      const contextTerms = additionalAttributes.length > 0 
+        ? `${searchTerm} ${additionalAttributes.join(' ')}`.trim()
+        : searchTerm || "restaurants";
+
+      // Check cache with full context
+      const cacheKey = `${location}-${contextTerms}-${searchCategories}-${hasKids}-${groupSizeNum}`;
+      const cachedResults = getCachedYelpResults(location, contextTerms, cacheKey);
+      if (cachedResults) {
+        return res.json(cachedResults);
+      }
+
+      // Make multiple API calls to get more diverse results
+      const allBusinesses: any[] = [];
+      const seenIds = new Set<string>();
+
+      // Primary search with user's term
+      const primaryResponse = await axios.get("https://api.yelp.com/v3/businesses/search", {
+        headers: { Authorization: `Bearer ${apiKey}` },
         params: {
           location,
-          term: searchTerm,
+          term: contextTerms,
           categories: searchCategories,
-          limit: Math.min(parseInt(limit as string) || 20, 50),
+          limit: 50,
+          sort_by: "best_match",
+        },
+      });
+
+      primaryResponse.data.businesses?.forEach((b: any) => {
+        if (!seenIds.has(b.id)) {
+          seenIds.add(b.id);
+          allBusinesses.push(b);
+        }
+      });
+
+      // Secondary search by rating
+      const ratingResponse = await axios.get("https://api.yelp.com/v3/businesses/search", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        params: {
+          location,
+          term: searchTerm || "best",
+          limit: 50,
           sort_by: "rating",
         },
       });
 
-      // Cache the results
-      setCachedYelpResults(location, searchTerm, searchCategories, response.data);
+      ratingResponse.data.businesses?.forEach((b: any) => {
+        if (!seenIds.has(b.id)) {
+          seenIds.add(b.id);
+          allBusinesses.push(b);
+        }
+      });
 
-      res.json(response.data);
+      // Search for each user interest to get diverse results
+      for (const interest of interestsList.slice(0, 4)) {
+        try {
+          const interestTerms = interestMapping[interest]?.terms || [interest.toLowerCase()];
+          const interestCategories = interestMapping[interest]?.categories?.join(',') || '';
+          
+          const interestResponse = await axios.get("https://api.yelp.com/v3/businesses/search", {
+            headers: { Authorization: `Bearer ${apiKey}` },
+            params: {
+              location,
+              term: interestTerms[0],
+              categories: interestCategories,
+              limit: 30,
+              sort_by: "best_match",
+            },
+          });
+
+          interestResponse.data.businesses?.forEach((b: any) => {
+            if (!seenIds.has(b.id)) {
+              seenIds.add(b.id);
+              allBusinesses.push(b);
+            }
+          });
+        } catch (err) {
+          console.log(`Interest search for ${interest} failed, continuing...`);
+        }
+      }
+
+      // If traveling with kids, add family-specific searches
+      if (hasKids) {
+        try {
+          const familyResponse = await axios.get("https://api.yelp.com/v3/businesses/search", {
+            headers: { Authorization: `Bearer ${apiKey}` },
+            params: {
+              location,
+              term: "family friendly kids activities",
+              categories: "kids_activities,amusementparks,zoos,aquariums,playgrounds",
+              limit: 30,
+              sort_by: "best_match",
+            },
+          });
+
+          familyResponse.data.businesses?.forEach((b: any) => {
+            if (!seenIds.has(b.id)) {
+              seenIds.add(b.id);
+              allBusinesses.push(b);
+            }
+          });
+        } catch (err) {
+          console.log("Family search failed, continuing...");
+        }
+      }
+
+      // Sort all results by a combination of rating and review count
+      allBusinesses.sort((a, b) => {
+        const scoreA = (a.rating || 0) * Math.log10((a.review_count || 1) + 1);
+        const scoreB = (b.rating || 0) * Math.log10((b.review_count || 1) + 1);
+        return scoreB - scoreA;
+      });
+
+      const result = {
+        businesses: allBusinesses,
+        total: allBusinesses.length,
+        region: primaryResponse.data.region,
+      };
+
+      // Cache the combined results
+      setCachedYelpResults(location, contextTerms, cacheKey, result);
+
+      res.json(result);
     } catch (error: any) {
       console.error(
         "Yelp API error:",
@@ -335,7 +484,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             if (companions && companions.length > 0) {
               const companionInterests = companions.flatMap((c: any) => c.interests);
-              const sharedInterests = interests.filter(i => companionInterests.includes(i));
+              const sharedInterests = interests.filter((i: string) => companionInterests.includes(i));
               if (sharedInterests.length > 0) {
                 reason += ` - everyone will enjoy it`;
               } else {
@@ -443,6 +592,197 @@ Return ONLY valid JSON array, no other text:
       res
         .status(500)
         .json({ error: error.message || "Failed to generate recommendations" });
+    }
+  });
+
+  // Smart Itinerary Generation Route (uses saved Yelp data only - no new API calls)
+  app.post("/api/itinerary/generate", requireAuth, async (req: any, res) => {
+    try {
+      const { tripId, numDays, location, businesses } = req.body;
+      const userId = req.session.userId;
+
+      // Verify trip ownership if tripId provided
+      if (tripId) {
+        const tripData = await supabaseDB.getTripById(tripId);
+        if (tripData && tripData.userId !== userId) {
+          return res.status(403).json({ error: "Unauthorized" });
+        }
+      }
+
+      // Use the businesses passed from the frontend (already fetched from Yelp)
+      const allPlaces = businesses || [];
+
+      if (allPlaces.length === 0) {
+        return res.status(400).json({ 
+          error: "No places available. Please search for places on the dashboard first." 
+        });
+      }
+
+      // Categorize places based on their Yelp categories
+      const categorizePlace = (place: any) => {
+        const cats = place.categories?.map((c: any) => c.alias || c.title?.toLowerCase()).join(' ') || '';
+        
+        if (cats.includes('breakfast') || cats.includes('coffee') || cats.includes('cafe') || cats.includes('bakeries') || cats.includes('brunch')) {
+          return 'breakfast';
+        }
+        if (cats.includes('museums') || cats.includes('landmarks') || cats.includes('parks') || cats.includes('tours') || cats.includes('arts')) {
+          return 'morning';
+        }
+        if (cats.includes('bars') || cats.includes('nightlife') || cats.includes('cocktail') || cats.includes('pubs') || cats.includes('lounges')) {
+          return 'evening';
+        }
+        if (cats.includes('restaurants') || cats.includes('food')) {
+          return place.price === '$$$$' || place.price === '$$$' ? 'dinner' : 'lunch';
+        }
+        return 'afternoon';
+      };
+
+      // Group places by category
+      const placesByCategory: Record<string, any[]> = {
+        breakfast: [],
+        morning: [],
+        lunch: [],
+        afternoon: [],
+        dinner: [],
+        evening: [],
+      };
+
+      allPlaces.forEach((place: any) => {
+        const category = categorizePlace(place);
+        placesByCategory[category].push(place);
+      });
+
+      // Sort each category by rating (highest first)
+      Object.keys(placesByCategory).forEach(key => {
+        placesByCategory[key].sort((a: any, b: any) => (b.rating || 0) - (a.rating || 0));
+      });
+
+      // Track used places across all days to avoid repetition
+      const globalUsedIds = new Set<string>();
+
+      // Build itinerary
+      const itinerary = Array.from({ length: numDays }, (_, dayIndex) => {
+        const dayActivities: any[] = [];
+
+        // Define time slots for each day
+        const dayTimeSlots = [
+          { time: '9:00 AM', category: 'breakfast', label: 'Breakfast' },
+          { time: '11:00 AM', category: 'morning', label: 'Morning Activity' },
+          { time: '1:00 PM', category: 'lunch', label: 'Lunch' },
+          { time: '3:30 PM', category: 'afternoon', label: 'Afternoon' },
+          { time: '7:00 PM', category: 'dinner', label: 'Dinner' },
+        ];
+
+        // Add evening activity on alternating days
+        if (dayIndex % 2 === 0) {
+          dayTimeSlots.push({ time: '9:00 PM', category: 'evening', label: 'Evening' });
+        }
+
+        dayTimeSlots.forEach((slot, slotIdx) => {
+          // Find available places not yet used
+          let availablePlaces = placesByCategory[slot.category].filter(
+            (p: any) => !globalUsedIds.has(p.id)
+          );
+          
+          // If no places in this category, try to find from other categories
+          if (availablePlaces.length === 0) {
+            const fallbackCategories = ['afternoon', 'lunch', 'morning'];
+            for (const fallback of fallbackCategories) {
+              availablePlaces = placesByCategory[fallback].filter(
+                (p: any) => !globalUsedIds.has(p.id)
+              );
+              if (availablePlaces.length > 0) break;
+            }
+          }
+          
+          const place = availablePlaces[0];
+          
+          if (place) {
+            globalUsedIds.add(place.id);
+            
+            // Calculate estimated travel time based on distance
+            const prevActivity = dayActivities[dayActivities.length - 1];
+            let travelTime: number | undefined;
+            if (prevActivity && place.distance) {
+              // Rough estimate: 2 min per 0.1 miles
+              travelTime = Math.max(5, Math.min(30, Math.round((place.distance / 1609) * 5)));
+            }
+
+            dayActivities.push({
+              id: `${dayIndex}-${slotIdx}`,
+              time: slot.time,
+              title: place.name,
+              location: place.location?.city || location?.split(',')[0] || 'City Center',
+              address: place.location?.display_address?.join(', ') || '',
+              yelpBusinessId: place.id,
+              rating: place.rating,
+              reviewCount: place.review_count,
+              price: place.price,
+              image_url: place.image_url,
+              categories: place.categories?.map((c: any) => c.title) || [],
+              completed: false,
+              travelTimeFromPrevious: slotIdx > 0 ? travelTime || 15 : undefined,
+              slotType: slot.label,
+            });
+          }
+        });
+
+        return {
+          date: `Day ${dayIndex + 1}`,
+          activities: dayActivities,
+        };
+      });
+
+      res.json({ itinerary });
+    } catch (error: any) {
+      console.error("Itinerary generation error:", error);
+      res.status(500).json({ error: error.message || "Failed to generate itinerary" });
+    }
+  });
+
+  // Save Itinerary Route
+  app.post("/api/trips/:tripId/itinerary", requireAuth, async (req: any, res) => {
+    try {
+      const { tripId } = req.params;
+      const { itinerary } = req.body;
+      const userId = req.session.userId;
+
+      // Verify trip ownership
+      const tripData = await supabaseDB.getTripById(tripId);
+      if (!tripData || tripData.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Store itinerary in trip data (you can add an itinerary column to trips table)
+      // For now, we'll store it in memory or you can extend the database schema
+      // This is a placeholder - implement based on your database structure
+      
+      res.json({ success: true, itinerary });
+    } catch (error: any) {
+      console.error("Save itinerary error:", error);
+      res.status(500).json({ error: error.message || "Failed to save itinerary" });
+    }
+  });
+
+  // Get Itinerary Route
+  app.get("/api/trips/:tripId/itinerary", requireAuth, async (req: any, res) => {
+    try {
+      const { tripId } = req.params;
+      const userId = req.session.userId;
+
+      // Verify trip ownership
+      const tripData = await supabaseDB.getTripById(tripId);
+      if (!tripData || tripData.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      // Retrieve itinerary from storage
+      // Placeholder - implement based on your database structure
+      
+      res.json({ itinerary: [] });
+    } catch (error: any) {
+      console.error("Get itinerary error:", error);
+      res.status(500).json({ error: error.message || "Failed to get itinerary" });
     }
   });
 

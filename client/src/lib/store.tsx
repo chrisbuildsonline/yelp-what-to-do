@@ -13,6 +13,8 @@ export interface SavedPlace {
   businessData: any;
   aiReason?: string;
   isFavorite?: boolean;
+  isVisited?: boolean;
+  visitedDate?: string;
 }
 
 export interface Trip {
@@ -62,6 +64,9 @@ interface UserContextType {
   toggleFavorite: (placeId: string) => void;
   isFavorite: (placeId: string) => boolean;
   getFavorites: () => SavedPlace[];
+  toggleVisited: (placeId: string) => void;
+  isVisited: (placeId: string) => boolean;
+  getVisited: () => SavedPlace[];
   updateCompanion: (index: number, companion: Companion) => void;
   loadTripsFromBackend: (sessionId: string) => Promise<void>;
   deleteTrip: (tripId: string) => void;
@@ -293,6 +298,56 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return (currentTrip?.savedPlaces || []).filter(p => p.isFavorite);
   };
 
+  const toggleVisited = (businessId: string) => {
+    setProfile(prev => {
+      const updatedTrips = prev.trips.map(trip => {
+        if (trip.id === prev.currentTripId) {
+          const existingPlace = (trip.savedPlaces || []).find(p => p.yelpBusinessId === businessId);
+          if (existingPlace) {
+            return {
+              ...trip,
+              savedPlaces: (trip.savedPlaces || []).map(place =>
+                place.yelpBusinessId === businessId
+                  ? { 
+                      ...place, 
+                      isVisited: !place.isVisited,
+                      visitedDate: !place.isVisited ? new Date().toISOString() : undefined
+                    }
+                  : place
+              ),
+            };
+          } else {
+            // Add new visited place
+            const newPlace: SavedPlace = {
+              id: Math.random().toString(36).substr(2, 9),
+              yelpBusinessId: businessId,
+              businessName: '',
+              businessData: {},
+              isVisited: true,
+              visitedDate: new Date().toISOString(),
+            };
+            return {
+              ...trip,
+              savedPlaces: [...(trip.savedPlaces || []), newPlace],
+            };
+          }
+        }
+        return trip;
+      });
+      return { ...prev, trips: updatedTrips };
+    });
+  };
+
+  const isVisited = (businessId: string): boolean => {
+    const currentTrip = profile.trips.find(t => t.id === profile.currentTripId);
+    return currentTrip?.savedPlaces?.some(p => p.yelpBusinessId === businessId && p.isVisited) || false;
+  };
+
+  const getVisited = (): SavedPlace[] => {
+    const currentTrip = profile.trips.find(t => t.id === profile.currentTripId);
+    return (currentTrip?.savedPlaces || []).filter(p => p.isVisited);
+  };
+
   const updateCompanion = (index: number, companion: Companion) => {
     setProfile(prev => ({
       ...prev,
@@ -337,6 +392,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         toggleFavorite,
         isFavorite,
         getFavorites,
+        toggleVisited,
+        isVisited,
+        getVisited,
         updateCompanion,
         loadTripsFromBackend,
         deleteTrip,

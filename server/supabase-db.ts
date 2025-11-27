@@ -260,6 +260,27 @@ export class SupabaseDB {
       return [];
     }
   }
+
+  async deleteTrip(tripId: string): Promise<void> {
+    try {
+      // First delete all saved places for this trip
+      await supabase
+        .from('saved_places')
+        .delete()
+        .eq('trip_id', tripId);
+
+      // Then delete the trip
+      const { error } = await supabase
+        .from('trips')
+        .delete()
+        .eq('id', tripId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting trip:', error);
+      throw error;
+    }
+  }
 }
 
 export const supabaseDB = new SupabaseDB();

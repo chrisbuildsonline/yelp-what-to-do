@@ -8,7 +8,9 @@ import Landing from "@/pages/landing";
 import Onboarding from "@/pages/onboarding";
 import Dashboard from "@/pages/dashboard";
 import EditPreferences from "@/pages/edit-preferences";
+import Profile from "@/pages/profile";
 import Auth from "@/pages/auth";
+import TripPlanner from "@/pages/trip-planner";
 import { UserProvider, useUser } from "@/lib/store";
 
 function Router() {
@@ -37,9 +39,25 @@ function Router() {
           <Redirect to="/landing" />
         )}
       </Route>
+      <Route path="/profile">
+        {isAuthenticated ? (
+          <Profile />
+        ) : (
+          <Redirect to="/landing" />
+        )}
+      </Route>
       <Route path="/dashboard">
         {isAuthenticated && profile.isOnboarded ? (
           <Dashboard />
+        ) : isAuthenticated ? (
+          <Redirect to="/onboarding" />
+        ) : (
+          <Redirect to="/landing" />
+        )}
+      </Route>
+      <Route path="/trip-planner">
+        {isAuthenticated && profile.isOnboarded ? (
+          <TripPlanner />
         ) : isAuthenticated ? (
           <Redirect to="/onboarding" />
         ) : (

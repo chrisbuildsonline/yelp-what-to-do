@@ -1,5 +1,6 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Star, MapPin, Phone, Globe, Clock, DollarSign, ExternalLink, Image, ChevronLeft, ChevronRight, X, MessageSquare, ThumbsUp, Camera } from 'lucide-react';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Star, MapPin, Phone, Globe, Clock, ExternalLink, ChevronLeft, ChevronRight, X, Camera, Check, Heart } from 'lucide-react';
+import { useUser } from '@/lib/store';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -79,6 +80,7 @@ interface PlaceDetailModalProps {
 }
 
 export function PlaceDetailModal({ open, onOpenChange, place }: PlaceDetailModalProps) {
+  const { toggleFavorite, isFavorite, toggleVisited, isVisited } = useUser();
   const [details, setDetails] = useState<BusinessDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
@@ -244,19 +246,39 @@ export function PlaceDetailModal({ open, onOpenChange, place }: PlaceDetailModal
                       <span className="text-xs text-blue-600 font-medium">✓ Claimed</span>
                     )}
                   </div>
-                  {place.url && (
-                    <a
-                      href={place.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="shrink-0"
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant={isVisited(place.id) ? "default" : "outline"}
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => toggleVisited(place.id)}
                     >
-                      <Button variant="outline" size="sm" className="gap-2">
-                        <ExternalLink className="w-4 h-4" />
-                        Yelp
-                      </Button>
-                    </a>
-                  )}
+                      <Check className="w-4 h-4" />
+                      {isVisited(place.id) ? 'Visited' : 'Mark Visited'}
+                    </Button>
+                    <Button
+                      variant={isFavorite(place.id) ? "default" : "outline"}
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => toggleFavorite(place.id)}
+                    >
+                      <Heart className={`w-4 h-4 ${isFavorite(place.id) ? 'fill-current' : ''}`} />
+                      {isFavorite(place.id) ? 'Favorited' : 'Favorite'}
+                    </Button>
+                    {place.url && (
+                      <a
+                        href={place.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0"
+                      >
+                        <Button variant="outline" size="sm" className="gap-2">
+                          <ExternalLink className="w-4 h-4" />
+                          Yelp
+                        </Button>
+                      </a>
+                    )}
+                  </div>
                 </div>
                 
                 {/* Rating & Reviews */}
@@ -433,7 +455,7 @@ export function PlaceDetailModal({ open, onOpenChange, place }: PlaceDetailModal
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black flex flex-col"
+            className="fixed inset-0 z-100 bg-black flex flex-col"
           >
             <div className="flex items-center justify-between p-4 text-white">
               <h3 className="font-semibold">{place.name} - Photos</h3>

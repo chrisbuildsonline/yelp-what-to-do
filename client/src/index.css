@@ -252,4 +252,9 @@
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
   }
+
+  /* Fix leaflet map z-index to prevent it from overlaying other elements */
+  .leaflet-container {
+    z-index: 0 !important;
+  }
 }

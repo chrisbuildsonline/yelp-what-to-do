@@ -173,7 +173,7 @@ export function MapView({ places, location }: MapViewProps) {
         <Button 
           onClick={() => setOpen(true)}
           size="sm"
-          className="absolute bottom-3 right-3 gap-2 shadow-lg z-[500] pointer-events-auto"
+          className="mt-3 gap-2 shadow-lg pointer-events-auto"
         >
           <Expand className="w-4 h-4" />
           Expand Map
@@ -182,7 +182,7 @@ export function MapView({ places, location }: MapViewProps) {
 
       {/* Full Map Modal */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] p-0 overflow-hidden">
+        <DialogContent className="max-w-5xl max-h-[90vh] z-[9999] p-0 overflow-hidden">
           <DialogHeader className="px-6 pt-6 pb-0">
             <DialogTitle className="flex items-center gap-2">
               <MapPin className="w-5 h-5" />
