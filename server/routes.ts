@@ -5,6 +5,7 @@ import axios from "axios";
 import { supabaseDB } from "./supabase-db";
 import bcrypt from "bcrypt";
 import { OpenAI } from "openai";
+import { getCachedYelpResults, setCachedYelpResults } from "./yelp-cache";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -229,6 +230,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "location parameter is required" });
       }
 
+      const searchTerm = (term as string) || "restaurants";
+      const searchCategories = (categories as string) || "";
+
+      // Check cache first
+      const cachedResults = getCachedYelpResults(location, searchTerm, searchCategories);
+      if (cachedResults) {
+        return res.json(cachedResults);
+      }
+
       const apiKey = process.env.YELP_API_KEY;
       if (!apiKey) {
         console.error("YELP_API_KEY not set");
@@ -241,12 +251,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         params: {
           location,
-          term: term || "restaurants",
-          categories: categories || "",
+          term: searchTerm,
+          categories: searchCategories,
           limit: Math.min(parseInt(limit as string) || 20, 50),
           sort_by: "rating",
         },
       });
+
+      // Cache the results
+      setCachedYelpResults(location, searchTerm, searchCategories, response.data);
 
       res.json(response.data);
     } catch (error: any) {
@@ -267,11 +280,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
 
+      // Check cache for business details
+      const cachedBusiness = getCachedYelpResults("business", id, "");
+      if (cachedBusiness) {
+        return res.json(cachedBusiness);
+      }
+
       const response = await axios.get(`https://api.yelp.com/v3/businesses/${id}`, {
         headers: {
           Authorization: `Bearer ${process.env.YELP_API_KEY}`,
         },
       });
+
+      // Cache the business details
+      setCachedYelpResults("business", id, "", response.data);
 
       res.json(response.data);
     } catch (error: any) {

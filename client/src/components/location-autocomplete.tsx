@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
 interface LocationResult {
   name: string;
   displayName: string;
+  city: string;
+  country: string;
   lat: number;
   lon: number;
 }
@@ -20,7 +22,7 @@ interface LocationAutocompleteProps {
 export function LocationAutocomplete({
   value,
   onChange,
-  placeholder = 'Search for a city or country...',
+  placeholder = 'Search for a city (e.g., Tokyo, Paris, New York)...',
   className,
 }: LocationAutocompleteProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -31,6 +33,7 @@ export function LocationAutocomplete({
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Search using OpenStreetMap Nominatim API (free, no API key needed)
+  // Filter for cities only (Yelp requires city-level location)
   const searchLocations = async (query: string) => {
     if (query.length < 2) {
       setResults([]);
@@ -39,8 +42,9 @@ export function LocationAutocomplete({
 
     setIsLoading(true);
     try {
+      // Search for cities, towns, and villages only
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&addressdetails=1`,
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=15&addressdetails=1&featuretype=city`,
         {
           headers: {
             'Accept': 'application/json',
@@ -50,12 +54,46 @@ export function LocationAutocomplete({
 
       if (response.ok) {
         const data = await response.json();
-        const formatted = data.map((item: any) => ({
-          name: item.name,
-          displayName: item.display_name,
-          lat: parseFloat(item.lat),
-          lon: parseFloat(item.lon),
-        }));
+        
+        // Filter and format results to only include cities/towns
+        const formatted: LocationResult[] = data
+          .filter((item: any) => {
+            const type = item.type;
+            const addressType = item.addresstype;
+            // Only include cities, towns, municipalities
+            return ['city', 'town', 'municipality', 'village', 'administrative'].includes(type) ||
+                   ['city', 'town', 'municipality', 'village'].includes(addressType);
+          })
+          .map((item: any) => {
+            const address = item.address || {};
+            const city = address.city || address.town || address.municipality || address.village || item.name;
+            const country = address.country || '';
+            const state = address.state || '';
+            
+            // Create a clean display format: "City, Country" or "City, State, Country"
+            let displayName = city;
+            if (state && state !== city) {
+              displayName += `, ${state}`;
+            }
+            if (country) {
+              displayName += `, ${country}`;
+            }
+
+            return {
+              name: item.name,
+              displayName,
+              city,
+              country,
+              lat: parseFloat(item.lat),
+              lon: parseFloat(item.lon),
+            };
+          })
+          // Remove duplicates based on displayName
+          .filter((item: LocationResult, index: number, self: LocationResult[]) => 
+            index === self.findIndex(t => t.displayName === item.displayName)
+          )
+          .slice(0, 8);
+
         setResults(formatted);
         setIsOpen(true);
       }
@@ -137,8 +175,8 @@ export function LocationAutocomplete({
             >
               <MapPin className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{result.name}</p>
-                <p className="text-xs text-muted-foreground truncate">{result.displayName}</p>
+                <p className="font-medium text-sm">{result.city}</p>
+                <p className="text-xs text-muted-foreground">{result.country}</p>
               </div>
             </button>
           ))}
@@ -147,7 +185,7 @@ export function LocationAutocomplete({
 
       {isOpen && results.length === 0 && !isLoading && inputValue.length >= 2 && (
         <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-border rounded-lg shadow-lg z-50 p-4 text-center text-sm text-muted-foreground">
-          No locations found. Try a different search.
+          No cities found. Try searching for a specific city name.
         </div>
       )}
     </div>

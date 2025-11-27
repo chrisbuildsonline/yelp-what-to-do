@@ -61,6 +61,7 @@ interface UserContextType {
   logout: () => void;
   toggleFavorite: (placeId: string) => void;
   isFavorite: (placeId: string) => boolean;
+  getFavorites: () => SavedPlace[];
   updateCompanion: (index: number, companion: Companion) => void;
   loadTripsFromBackend: (sessionId: string) => Promise<void>;
   deleteTrip: (tripId: string) => void;
@@ -129,14 +130,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
         if (trips && trips.length > 0) {
           // Load the most recent trip
           const mostRecentTrip = trips[trips.length - 1];
+          
+          // Convert API response to Trip format
+          const formattedTrips: Trip[] = trips.map((trip: any) => ({
+            id: trip.id,
+            name: trip.name,
+            country: trip.location,
+            interests: trip.interests || [],
+            companions: trip.companions || [],
+            savedPlaces: trip.savedPlaces || [],
+          }));
+
           setProfile(prev => ({
             ...prev,
-            trips,
+            trips: formattedTrips,
             currentTripId: mostRecentTrip.id,
             currentTripName: mostRecentTrip.name,
-            country: mostRecentTrip.country,
-            interests: mostRecentTrip.interests,
-            companions: mostRecentTrip.companions,
+            country: mostRecentTrip.location,
+            interests: mostRecentTrip.interests || [],
+            companions: mostRecentTrip.companions || [],
             isOnboarded: true,
           }));
         }
@@ -236,18 +248,34 @@ export function UserProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('user');
   };
 
-  const toggleFavorite = (placeId: string) => {
+  const toggleFavorite = (businessId: string) => {
     setProfile(prev => {
       const updatedTrips = prev.trips.map(trip => {
         if (trip.id === prev.currentTripId) {
-          return {
-            ...trip,
-            savedPlaces: (trip.savedPlaces || []).map(place =>
-              place.id === placeId
-                ? { ...place, isFavorite: !place.isFavorite }
-                : place
-            ),
-          };
+          const existingPlace = (trip.savedPlaces || []).find(p => p.yelpBusinessId === businessId);
+          if (existingPlace) {
+            return {
+              ...trip,
+              savedPlaces: (trip.savedPlaces || []).map(place =>
+                place.yelpBusinessId === businessId
+                  ? { ...place, isFavorite: !place.isFavorite }
+                  : place
+              ),
+            };
+          } else {
+            // Add new favorite
+            const newPlace: SavedPlace = {
+              id: Math.random().toString(36).substr(2, 9),
+              yelpBusinessId: businessId,
+              businessName: '',
+              businessData: {},
+              isFavorite: true,
+            };
+            return {
+              ...trip,
+              savedPlaces: [...(trip.savedPlaces || []), newPlace],
+            };
+          }
         }
         return trip;
       });
@@ -255,9 +283,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const isFavorite = (placeId: string): boolean => {
+  const isFavorite = (businessId: string): boolean => {
     const currentTrip = profile.trips.find(t => t.id === profile.currentTripId);
-    return currentTrip?.savedPlaces?.some(p => p.id === placeId && p.isFavorite) || false;
+    return currentTrip?.savedPlaces?.some(p => p.yelpBusinessId === businessId && p.isFavorite) || false;
+  };
+
+  const getFavorites = (): SavedPlace[] => {
+    const currentTrip = profile.trips.find(t => t.id === profile.currentTripId);
+    return (currentTrip?.savedPlaces || []).filter(p => p.isFavorite);
   };
 
   const updateCompanion = (index: number, companion: Companion) => {
@@ -303,6 +336,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         logout,
         toggleFavorite,
         isFavorite,
+        getFavorites,
         updateCompanion,
         loadTripsFromBackend,
         deleteTrip,

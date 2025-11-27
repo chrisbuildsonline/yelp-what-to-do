@@ -2,16 +2,18 @@ import { useUser } from '@/lib/store';
 import { useLocation } from 'wouter';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, MapPin, Star, Bell, Heart, Users, Plus, List, Edit2, ArrowRight, Sparkles, Loader, LogOut, Trash2 } from 'lucide-react';
+import { Search, MapPin, Star, Bell, Heart, Users, Plus, List, Edit2, ArrowRight, Sparkles, Loader, LogOut, Trash2, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { ManageFriendsModal } from '@/components/manage-friends-modal';
 import { MapView } from '@/components/map-view';
+import { PlaceDetailModal } from '@/components/place-detail-modal';
+import { CityHeader } from '@/components/city-header';
 
 import cafeImg from '@assets/generated_images/modern_brunch_cafe_interior.png';
 import hikingImg from '@assets/generated_images/scenic_hiking_trail.png';
@@ -36,7 +38,7 @@ interface YelpBusiness {
 type FilterType = 'For You' | 'Trending' | 'New';
 
 export default function Dashboard() {
-  const { profile, user, sessionId, logout, createNewTrip, loadTrip, toggleFavorite, isFavorite, deleteTrip } = useUser();
+  const { profile, user, sessionId, logout, createNewTrip, loadTrip, toggleFavorite, isFavorite, deleteTrip, getFavorites } = useUser();
   const [, setLocation] = useLocation();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [yelpData, setYelpData] = useState<YelpBusiness[]>([]);
@@ -45,6 +47,8 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterType>('For You');
   const [cachedData, setCachedData] = useState<Record<string, YelpBusiness[]>>({});
+  const [selectedPlace, setSelectedPlace] = useState<YelpBusiness | null>(null);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
 
   useEffect(() => {
     if (!profile.isOnboarded) {
@@ -54,10 +58,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (profile.isOnboarded && profile.country && sessionId) {
+      // Fetch Yelp data when dashboard loads
       fetchYelpData();
       setError(null);
     }
-  }, [profile.country, profile.currentTripId, profile.isOnboarded, sessionId]);
+  }, [profile.isOnboarded, sessionId]);
 
   const fetchYelpData = async (filter: FilterType = 'For You', term: string = searchTerm) => {
     // Validate location before searching
@@ -349,34 +354,26 @@ export default function Dashboard() {
 
         {!error && yelpData.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <PlaceDetailModal
+              open={detailModalOpen}
+              onOpenChange={setDetailModalOpen}
+              place={selectedPlace || {
+                id: '',
+                name: '',
+                rating: 0,
+                review_count: 0,
+                image_url: '',
+                categories: [],
+                distance: 0,
+              }}
+            />
+            
             <div className="lg:col-span-8 space-y-8">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.1 }}
-                className="relative rounded-3xl overflow-hidden aspect-2/1 group cursor-pointer"
-              >
-                <img
-                  src={hikingImg}
-                  alt="Featured"
-                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent" />
-                <div className="absolute bottom-0 left-0 p-6 md:p-8 text-white">
-                  <div className="flex gap-2 mb-3">
-                    <Badge className="bg-white/20 backdrop-blur-md hover:bg-white/30 text-white border-none">
-                      Top Pick
-                    </Badge>
-                    <Badge className="bg-primary/80 backdrop-blur-md hover:bg-primary/90 text-white border-none flex items-center gap-1">
-                      <Sparkles className="w-3 h-3" /> AI Choice
-                    </Badge>
-                  </div>
-                  <h2 className="text-2xl md:text-4xl font-bold mb-2">Discover Amazing Places</h2>
-                  <p className="text-white/80 max-w-lg line-clamp-2">
-                    Based on your interests in <span className="font-semibold text-white">{profile.interests.join(', ')}</span>, we found incredible spots for you.
-                  </p>
-                </div>
-              </motion.div>
+              <CityHeader 
+                city={profile.country} 
+                country={profile.country}
+                interests={profile.interests}
+              />
 
             <div>
               <div className="flex items-center justify-between mb-6">
@@ -398,11 +395,7 @@ export default function Dashboard() {
                 </div>
               )}
               
-              {!isLoading && yelpData.length === 0 && !error && (
-                <div className="flex items-center justify-center py-12 text-muted-foreground">
-                  <p>No places loaded yet. Try searching or refreshing.</p>
-                </div>
-              )}
+
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {displayPlaces.map((place, i) => (
@@ -458,44 +451,105 @@ export default function Dashboard() {
                           ))}
                           <span className="text-xs ml-auto font-medium text-foreground px-2 py-1">{place.price}</span>
                         </div>
+                        
+                        <button
+                          onClick={() => {
+                            const yelpBusiness = yelpData.find(b => b.id === place.id);
+                            if (yelpBusiness) {
+                              setSelectedPlace(yelpBusiness);
+                              setDetailModalOpen(true);
+                            }
+                          }}
+                          className="mt-3 w-full py-2 px-3 bg-primary/10 hover:bg-primary/20 text-primary text-sm font-medium rounded-md transition-colors"
+                        >
+                          Read More
+                        </button>
                       </CardContent>
                     </Card>
                   </motion.div>
                 ))}
-              </div>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="lg:col-span-4 space-y-8">
-            <Card className="p-0 overflow-hidden border-none shadow-lg">
-              <div className="bg-slate-200 h-48 w-full relative flex items-center justify-center">
-                <MapPin className="w-8 h-8 text-primary animate-bounce" />
-                <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm">
-                  {profile.country} Area
-                </div>
+            {/* Favorites Sidebar */}
+            <Card className="p-5 border-none shadow-md">
+              <h3 className="font-bold mb-4 flex items-center gap-2">
+                <Heart className="w-4 h-4 text-red-500 fill-red-500" />
+                Favorites
+              </h3>
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {getFavorites().length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic">No favorites yet. Heart a place to add it here!</p>
+                ) : (
+                  getFavorites().map((fav) => {
+                    const yelpBusiness = yelpData.find(b => b.id === fav.yelpBusinessId);
+                    if (!yelpBusiness) return null;
+                    
+                    return (
+                      <div
+                        key={fav.yelpBusinessId}
+                        className="p-3 rounded-lg border border-border/50 hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer group"
+                        onClick={() => {
+                          setSelectedPlace(yelpBusiness);
+                          setDetailModalOpen(true);
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          {yelpBusiness.image_url && (
+                            <img
+                              src={yelpBusiness.image_url}
+                              alt={yelpBusiness.name}
+                              className="w-12 h-12 rounded object-cover"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-sm leading-tight group-hover:text-primary transition-colors truncate">
+                              {yelpBusiness.name}
+                            </h4>
+                            <div className="flex items-center gap-1 mt-1">
+                              <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                              <span className="text-xs font-medium">{yelpBusiness.rating}</span>
+                              <span className="text-xs text-muted-foreground">({yelpBusiness.review_count})</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {(yelpBusiness.distance / 1609).toFixed(1)} mi away
+                            </p>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(yelpBusiness.id);
+                            }}
+                            className="p-1 hover:bg-red-500/10 hover:text-red-500 rounded transition-colors shrink-0"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
-              <div className="p-4">
-                <h3 className="font-bold mb-1">Your Map</h3>
-                <p className="text-sm text-muted-foreground mb-4">View all {displayPlaces.length} recommended spots on the map.</p>
-                <MapView places={yelpData.map(b => {
-                  const place = {
-                    id: b.id,
-                    name: b.name,
-                    rating: b.rating,
-                    review_count: b.review_count,
-                    image_url: b.image_url,
-                    coordinates: b.coordinates,
-                    phone: b.phone,
-                    url: b.url,
-                    categories: b.categories,
-                    distance: b.distance,
-                  };
-                  if (!place.coordinates) {
-                    console.warn(`Place ${place.name} missing coordinates`);
-                  }
-                  return place;
-                })} location={profile.country} />
-              </div>
+            </Card>
+
+            <Card className="p-4 border-none shadow-lg">
+              <h3 className="font-bold mb-1">Your Map</h3>
+              <p className="text-sm text-muted-foreground mb-4">View all {yelpData.length} recommended spots on the map.</p>
+              <MapView places={yelpData.map(b => ({
+                id: b.id,
+                name: b.name,
+                rating: b.rating,
+                review_count: b.review_count,
+                image_url: b.image_url,
+                coordinates: b.coordinates,
+                phone: b.phone,
+                url: b.url,
+                categories: b.categories,
+                distance: b.distance,
+              }))} location={profile.country} />
             </Card>
 
             <Card className="p-5 border-none shadow-md">

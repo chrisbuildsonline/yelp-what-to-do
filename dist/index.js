@@ -1,6 +1,6 @@
 // server/index-prod.ts
-import fs from "node:fs";
-import path from "node:path";
+import fs2 from "node:fs";
+import path2 from "node:path";
 import express2 from "express";
 
 // server/app.ts
@@ -205,6 +205,59 @@ var supabaseDB = new SupabaseDB();
 // server/routes.ts
 import bcrypt from "bcrypt";
 import { OpenAI } from "openai";
+
+// server/yelp-cache.ts
+import fs from "fs";
+import path from "path";
+var CACHE_DIR = path.join(process.cwd(), ".yelp-cache");
+var CACHE_TTL = 24 * 60 * 60 * 1e3;
+if (!fs.existsSync(CACHE_DIR)) {
+  fs.mkdirSync(CACHE_DIR, { recursive: true });
+}
+function getCacheKey(location, term, categories) {
+  const key = `${location}|${term}|${categories}`;
+  return Buffer.from(key).toString("base64").replace(/[^a-zA-Z0-9]/g, "");
+}
+function getCacheFilePath(key) {
+  return path.join(CACHE_DIR, `${key}.json`);
+}
+function getCachedYelpResults(location, term, categories) {
+  const key = getCacheKey(location, term, categories);
+  const filePath = getCacheFilePath(key);
+  try {
+    if (!fs.existsSync(filePath)) {
+      return null;
+    }
+    const content = fs.readFileSync(filePath, "utf-8");
+    const entry = JSON.parse(content);
+    if (Date.now() - entry.timestamp > entry.ttl) {
+      fs.unlinkSync(filePath);
+      return null;
+    }
+    console.log(`[YELP-CACHE] Cache hit for: ${location} | ${term}`);
+    return entry.data;
+  } catch (error) {
+    console.error("Error reading cache:", error);
+    return null;
+  }
+}
+function setCachedYelpResults(location, term, categories, data) {
+  const key = getCacheKey(location, term, categories);
+  const filePath = getCacheFilePath(key);
+  try {
+    const entry = {
+      data,
+      timestamp: Date.now(),
+      ttl: CACHE_TTL
+    };
+    fs.writeFileSync(filePath, JSON.stringify(entry), "utf-8");
+    console.log(`[YELP-CACHE] Cached results for: ${location} | ${term}`);
+  } catch (error) {
+    console.error("Error writing cache:", error);
+  }
+}
+
+// server/routes.ts
 var openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
@@ -341,11 +394,35 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: error.message || "Failed to fetch trip" });
     }
   });
+  app2.delete("/api/trips/:tripId", requireAuth, async (req, res) => {
+    try {
+      const { tripId } = req.params;
+      const userId = req.session.userId;
+      const tripData = await supabaseDB.getTripById(tripId);
+      if (!tripData) {
+        return res.status(404).json({ error: "Trip not found" });
+      }
+      if (tripData.userId !== userId) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+      await supabaseDB.deleteTrip(tripId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete trip error:", error);
+      res.status(500).json({ error: error.message || "Failed to delete trip" });
+    }
+  });
   app2.get("/api/yelp/search", async (req, res) => {
     try {
       const { location, term, categories, limit = 20 } = req.query;
       if (!location || typeof location !== "string") {
         return res.status(400).json({ error: "location parameter is required" });
+      }
+      const searchTerm = term || "restaurants";
+      const searchCategories = categories || "";
+      const cachedResults = getCachedYelpResults(location, searchTerm, searchCategories);
+      if (cachedResults) {
+        return res.json(cachedResults);
       }
       const apiKey = process.env.YELP_API_KEY;
       if (!apiKey) {
@@ -358,12 +435,13 @@ async function registerRoutes(app2) {
         },
         params: {
           location,
-          term: term || "restaurants",
-          categories: categories || "",
+          term: searchTerm,
+          categories: searchCategories,
           limit: Math.min(parseInt(limit) || 20, 50),
           sort_by: "rating"
         }
       });
+      setCachedYelpResults(location, searchTerm, searchCategories, response.data);
       res.json(response.data);
     } catch (error) {
       console.error(
@@ -379,11 +457,16 @@ async function registerRoutes(app2) {
   app2.get("/api/yelp/business/:id", async (req, res) => {
     try {
       const { id } = req.params;
+      const cachedBusiness = getCachedYelpResults("business", id, "");
+      if (cachedBusiness) {
+        return res.json(cachedBusiness);
+      }
       const response = await axios.get(`https://api.yelp.com/v3/businesses/${id}`, {
         headers: {
           Authorization: `Bearer ${process.env.YELP_API_KEY}`
         }
       });
+      setCachedYelpResults("business", id, "", response.data);
       res.json(response.data);
     } catch (error) {
       console.error("Yelp API error:", error.message);
@@ -392,7 +475,7 @@ async function registerRoutes(app2) {
   });
   app2.post("/api/recommendations", requireAuth, async (req, res) => {
     try {
-      const { businesses, interests, companions, location } = req.body;
+      const { businesses, interests, companions, location, userAge, travelingWithKids, kidsAges } = req.body;
       if (!businesses || !Array.isArray(businesses)) {
         return res.status(400).json({ error: "Invalid businesses data" });
       }
@@ -403,10 +486,19 @@ async function registerRoutes(app2) {
           );
           let reason = `Highly rated with ${b.review_count} reviews`;
           if (matchedInterests.length > 0) {
-            reason = `Matches your interests in ${matchedInterests.join(", ")}`;
+            reason = `Perfect for your interest in ${matchedInterests[0]}`;
+          }
+          if (travelingWithKids && kidsAges && kidsAges.length > 0) {
+            reason += ` and family-friendly`;
           }
           if (companions && companions.length > 0) {
-            reason += ` and great for groups`;
+            const companionInterests = companions.flatMap((c) => c.interests);
+            const sharedInterests = interests.filter((i) => companionInterests.includes(i));
+            if (sharedInterests.length > 0) {
+              reason += ` - everyone will enjoy it`;
+            } else {
+              reason += ` - great for your group`;
+            }
           }
           return {
             businessId: b.id,
@@ -416,28 +508,58 @@ async function registerRoutes(app2) {
         });
         return res.json(recommendations2);
       }
-      const companionText = companions && companions.length > 0 ? `Travel companions: ${companions.map((c) => `${c.name} (interests: ${c.interests.join(", ")})`).join(", ")}` : "Solo traveler";
-      const prompt = `You are a travel recommendation expert. Given the following Yelp businesses and user preferences, select the top 3-5 most suitable recommendations and provide a brief reason for each.
+      const companionDetails = companions && companions.length > 0 ? companions.map((c) => {
+        const details = [`${c.name} (${c.age || "age unknown"})`];
+        if (c.interests && c.interests.length > 0) {
+          details.push(`interests: ${c.interests.join(", ")}`);
+        }
+        return details.join(", ");
+      }).join("; ") : "Solo traveler";
+      const familyContext = travelingWithKids && kidsAges && kidsAges.length > 0 ? `
+Traveling with kids aged: ${kidsAges.join(", ")} - prioritize family-friendly venues with good atmosphere for children.` : "";
+      const groupDynamics = companions && companions.length > 0 ? `
+Group composition: ${companions.length} travel companions. Consider places that appeal to diverse interests and work well for groups.` : "";
+      const prompt = `You are an expert travel recommendation AI specializing in personalized destination discovery. Your goal is to recommend the most suitable places based on the traveler's unique profile, group dynamics, and preferences.
 
-User interests: ${interests.join(", ")}
-${companionText}
-Location: ${location}
+TRAVELER PROFILE:
+- Primary interests: ${interests.join(", ")}
+- Age: ${userAge || "not specified"}
+- Travel companions: ${companionDetails}${familyContext}${groupDynamics}
+- Destination: ${location}
 
-Businesses:
-${businesses.slice(0, 10).map(
-        (b) => `- ${b.name} (Rating: ${b.rating}/5, Reviews: ${b.review_count}, Categories: ${b.categories.map((c) => c.title).join(", ")})`
-      ).join("\n")}
+RECOMMENDATION CRITERIA:
+1. Interest Alignment: Prioritize places that match the traveler's stated interests
+2. Group Compatibility: For group travel, find places that appeal to multiple people's interests
+3. Experience Quality: Consider ratings and review counts as indicators of quality
+4. Variety: Suggest diverse types of experiences (don't recommend similar places)
+5. Accessibility: For families with kids, prioritize welcoming, safe environments
+6. Unique Value: Explain what makes each place special and why it's worth visiting
 
-Provide recommendations in JSON format:
+AVAILABLE BUSINESSES:
+${businesses.slice(0, 15).map(
+        (b, idx) => `${idx + 1}. ${b.name}
+   Rating: ${b.rating}/5 (${b.review_count} reviews)
+   Categories: ${b.categories.map((c) => c.title).join(", ")}
+   Price: ${b.price || "Not specified"}
+   Distance: ${(b.distance / 1609).toFixed(1)} miles`
+      ).join("\n\n")}
+
+TASK:
+Select the top 3-5 most suitable recommendations. For each recommendation:
+1. Explain why it matches their interests
+2. Consider how it fits with their travel companions
+3. Highlight what makes it special for their specific trip
+4. Keep reasoning concise but compelling (1-2 sentences max)
+
+RESPONSE FORMAT:
+Return ONLY valid JSON array, no other text:
 [
   {
-    "businessId": "yelp_id",
-    "businessName": "name",
-    "reason": "brief reason why this is recommended"
+    "businessId": "yelp_business_id",
+    "businessName": "exact_business_name",
+    "reason": "Compelling reason why this is perfect for them"
   }
-]
-
-Only return valid JSON, no other text.`;
+]`;
       const completion = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
         messages: [
@@ -446,7 +568,8 @@ Only return valid JSON, no other text.`;
             content: prompt
           }
         ],
-        temperature: 0.7
+        temperature: 0.7,
+        max_tokens: 500
       });
       const content = completion.choices[0].message.content;
       if (!content) {
@@ -508,7 +631,7 @@ app.use(express.json({
 app.use(express.urlencoded({ extended: false }));
 app.use((req, res, next) => {
   const start = Date.now();
-  const path2 = req.path;
+  const path3 = req.path;
   let capturedJsonResponse = void 0;
   const originalResJson = res.json;
   res.json = function(bodyJson, ...args) {
@@ -517,8 +640,8 @@ app.use((req, res, next) => {
   };
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (path2.startsWith("/api")) {
-      let logLine = `${req.method} ${path2} ${res.statusCode} in ${duration}ms`;
+    if (path3.startsWith("/api")) {
+      let logLine = `${req.method} ${path3} ${res.statusCode} in ${duration}ms`;
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
@@ -551,15 +674,15 @@ async function runApp(setup) {
 
 // server/index-prod.ts
 async function serveStatic(app2, server) {
-  const distPath = path.resolve(import.meta.dirname, "public");
-  if (!fs.existsSync(distPath)) {
+  const distPath = path2.resolve(import.meta.dirname, "public");
+  if (!fs2.existsSync(distPath)) {
     throw new Error(
       `Could not find the build directory: ${distPath}, make sure to build the client first`
     );
   }
   app2.use(express2.static(distPath));
   app2.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
+    res.sendFile(path2.resolve(distPath, "index.html"));
   });
 }
 (async () => {
