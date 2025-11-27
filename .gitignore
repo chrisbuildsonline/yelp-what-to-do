@@ -1,5 +1,8 @@
 .env
-.history
 node_modules
-.yelp-cache
 dist
+.DS_Store
+.yelp-cache
+.history
+.kiro
+.hackathon

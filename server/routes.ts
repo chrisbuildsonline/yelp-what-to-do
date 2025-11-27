@@ -394,16 +394,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Add custom filter tags to each business based on categories
+      const taggedBusinesses = allBusinesses.map(business => {
+        const customTags: string[] = ['All']; // All businesses get 'All' tag
+        const categoryTitles = (business.categories || []).map((c: any) => c.title.toLowerCase());
+        const categoryAliases = (business.categories || []).map((c: any) => c.alias?.toLowerCase() || '');
+        const allCategories = [...categoryTitles, ...categoryAliases].join(' ');
+
+        // Food tag
+        if (
+          /restaurant|food|cafe|coffee|dining|bar|bakery|dessert|pizza|burger|sushi|mexican|italian|chinese|thai|indian|breakfast|brunch|lunch|dinner|eatery|bistro|grill|deli|sandwich/i.test(allCategories)
+        ) {
+          customTags.push('Food');
+        }
+
+        // Activities tag
+        if (
+          /activity|tour|entertainment|recreation|sport|adventure|museum|gallery|theater|cinema|bowling|arcade|escape|game|park|zoo|aquarium|attraction|sightseeing|hiking|biking|kayak|boat/i.test(allCategories)
+        ) {
+          customTags.push('Activities');
+        }
+
+        // Nightlife tag
+        if (
+          /nightlife|bar|club|lounge|pub|cocktail|wine|beer|brewery|distillery|dance|dj|live music|karaoke/i.test(allCategories)
+        ) {
+          customTags.push('Nightlife');
+        }
+
+        // Photography tag (scenic/visual places)
+        if (
+          /landmark|scenic|viewpoint|park|museum|gallery|historic|architecture|monument|observation|tower|bridge|garden|botanical|beach|waterfront|overlook|vista/i.test(allCategories)
+        ) {
+          customTags.push('Photography');
+        }
+
+        return {
+          ...business,
+          customTags, // Add our custom tags
+        };
+      });
+
       // Sort all results by a combination of rating and review count
-      allBusinesses.sort((a, b) => {
+      taggedBusinesses.sort((a, b) => {
         const scoreA = (a.rating || 0) * Math.log10((a.review_count || 1) + 1);
         const scoreB = (b.rating || 0) * Math.log10((b.review_count || 1) + 1);
         return scoreB - scoreA;
       });
 
       const result = {
-        businesses: allBusinesses,
-        total: allBusinesses.length,
+        businesses: taggedBusinesses,
+        total: taggedBusinesses.length,
         region: primaryResponse.data.region,
       };
 
@@ -700,12 +741,39 @@ Return ONLY valid JSON array, no other text:
           if (place) {
             globalUsedIds.add(place.id);
             
-            // Calculate estimated travel time based on distance
+            // Calculate walking time using coordinates
+            let travelTimeFromPrevious: number | undefined;
             const prevActivity = dayActivities[dayActivities.length - 1];
-            let travelTime: number | undefined;
-            if (prevActivity && place.distance) {
-              // Rough estimate: 2 min per 0.1 miles
-              travelTime = Math.max(5, Math.min(30, Math.round((place.distance / 1609) * 5)));
+            
+            if (slotIdx > 0 && prevActivity?.coordinates && place.coordinates) {
+              // Validate coordinates
+              const lat1 = prevActivity.coordinates.latitude;
+              const lon1 = prevActivity.coordinates.longitude;
+              const lat2 = place.coordinates.latitude;
+              const lon2 = place.coordinates.longitude;
+              
+              if (isFinite(lat1) && isFinite(lon1) && isFinite(lat2) && isFinite(lon2)) {
+                // Haversine formula for distance calculation
+                const R = 6371; // Earth's radius in km
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                const distanceKm = R * c;
+                
+                // Walking speed: 5 km/h with 20% real-world factor
+                const walkingSpeedKmh = 5;
+                const realWorldFactor = 1.2;
+                const timeHours = (distanceKm / walkingSpeedKmh) * realWorldFactor;
+                const timeMinutes = Math.round(timeHours * 60);
+                
+                // Only set if there's actual distance (min 1 min, max 120 min)
+                if (timeMinutes > 0) {
+                  travelTimeFromPrevious = Math.max(1, Math.min(120, timeMinutes));
+                }
+              }
             }
 
             dayActivities.push({
@@ -720,8 +788,9 @@ Return ONLY valid JSON array, no other text:
               price: place.price,
               image_url: place.image_url,
               categories: place.categories?.map((c: any) => c.title) || [],
+              coordinates: place.coordinates,
               completed: false,
-              travelTimeFromPrevious: slotIdx > 0 ? travelTime || 15 : undefined,
+              travelTimeFromPrevious,
               slotType: slot.label,
             });
           }
@@ -741,6 +810,9 @@ Return ONLY valid JSON array, no other text:
   });
 
   // Save Itinerary Route
+  // In-memory storage for itineraries (in production, use database)
+  const itineraryStorage = new Map<string, any>();
+
   app.post("/api/trips/:tripId/itinerary", requireAuth, async (req: any, res) => {
     try {
       const { tripId } = req.params;
@@ -753,9 +825,8 @@ Return ONLY valid JSON array, no other text:
         return res.status(403).json({ error: "Unauthorized" });
       }
 
-      // Store itinerary in trip data (you can add an itinerary column to trips table)
-      // For now, we'll store it in memory or you can extend the database schema
-      // This is a placeholder - implement based on your database structure
+      // Store itinerary in memory (keyed by tripId)
+      itineraryStorage.set(tripId, itinerary);
       
       res.json({ success: true, itinerary });
     } catch (error: any) {
@@ -776,10 +847,10 @@ Return ONLY valid JSON array, no other text:
         return res.status(403).json({ error: "Unauthorized" });
       }
 
-      // Retrieve itinerary from storage
-      // Placeholder - implement based on your database structure
+      // Retrieve itinerary from memory
+      const itinerary = itineraryStorage.get(tripId) || [];
       
-      res.json({ itinerary: [] });
+      res.json({ itinerary });
     } catch (error: any) {
       console.error("Get itinerary error:", error);
       res.status(500).json({ error: error.message || "Failed to get itinerary" });

@@ -33,7 +33,7 @@ yelp-ai-tour-guide/
 │   └── schema.ts            # Data types and Zod schemas
 │
 ├── attached_assets/         # Generated images for UI
-│   └── generated_images/    # Sample images for places
+│   └── images/    # Sample images for places
 │
 ├── dist/                    # Production build output
 │   ├── index.js            # Bundled backend

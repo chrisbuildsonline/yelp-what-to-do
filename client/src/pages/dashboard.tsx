@@ -2,7 +2,7 @@ import { useUser } from '@/lib/store';
 import { useLocation } from 'wouter';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, MapPin, Star, Bell, Heart, Users, Plus, List, Edit2, ArrowRight, Sparkles, LogOut, Trash2, X, Calendar, Check } from 'lucide-react';
+import { Search, MapPin, Star, Heart, Users, Plus, List, Edit2, ArrowRight, Sparkles, LogOut, Trash2, X, Calendar, Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -14,13 +14,13 @@ import { ManageFriendsModal } from '@/components/manage-friends-modal';
 import { MapView } from '@/components/map-view';
 import { PlaceDetailModal } from '@/components/place-detail-modal';
 import { CityHeader } from '@/components/city-header';
-import { GenerateItineraryModal } from '@/components/generate-itinerary-modal';
 
-import cafeImg from '@assets/generated_images/modern_brunch_cafe_interior.png';
-import hikingImg from '@assets/generated_images/scenic_hiking_trail.png';
-import burgerImg from '@assets/generated_images/gourmet_burger_meal.png';
-import museumImg from '@assets/generated_images/modern_art_museum.png';
-import diningImg from '@assets/generated_images/friends_dining_at_night.png';
+
+import cafeImg from '@assets/images/modern_brunch_cafe_interior.png';
+import hikingImg from '@assets/images/scenic_hiking_trail.png';
+import burgerImg from '@assets/images/gourmet_burger_meal.png';
+import museumImg from '@assets/images/modern_art_museum.png';
+import diningImg from '@assets/images/friends_dining_at_night.png';
 
 interface YelpBusiness {
   id: string;
@@ -34,6 +34,7 @@ interface YelpBusiness {
   coordinates?: { latitude: number; longitude: number };
   phone?: string;
   url?: string;
+  customTags?: string[]; // Custom tags from backend
 }
 
 
@@ -50,8 +51,6 @@ export default function Dashboard() {
   const [activeFilter, setActiveFilter] = useState<string>('All');
   const [selectedPlace, setSelectedPlace] = useState<YelpBusiness | null>(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const [generateModalOpen, setGenerateModalOpen] = useState(false);
-  const [isGeneratingItinerary, setIsGeneratingItinerary] = useState(false);
 
   useEffect(() => {
     if (!profile.isOnboarded) {
@@ -67,42 +66,110 @@ export default function Dashboard() {
     }
   }, [profile.isOnboarded, sessionId]);
 
-  const fetchYelpData = async (filter: string = activeFilter, term: string = searchTerm) => {
+  // Filter existing data based on category
+  const filterData = (filterType: string) => {
+    setActiveFilter(filterType);
+    
+    if (filterType === 'All') {
+      setFilteredData(allYelpData);
+      return;
+    }
+
+    let filtered = allYelpData;
+
+    // First try to use custom tags from backend (faster and more accurate)
+    if (allYelpData.length > 0 && allYelpData[0].customTags) {
+      filtered = allYelpData.filter(business => 
+        business.customTags?.includes(filterType)
+      );
+    } else {
+      // Fallback to category keyword matching
+      const categoryMap: Record<string, string[]> = {
+        'Food': ['restaurant', 'food', 'cafe', 'coffee', 'dining', 'bakery', 'dessert', 'brunch', 'breakfast', 'lunch', 'dinner'],
+        'Activities': ['activity', 'tour', 'entertainment', 'recreation', 'sport', 'adventure', 'attraction', 'amusement'],
+        'Nightlife': ['nightlife', 'bar', 'club', 'lounge', 'pub', 'cocktail', 'wine', 'beer'],
+        'Culture': ['museum', 'gallery', 'art', 'theater', 'theatre', 'historic', 'landmark', 'monument'],
+        'Nature': ['park', 'garden', 'hiking', 'beach', 'outdoor', 'nature', 'scenic', 'viewpoint'],
+        'Shopping': ['shopping', 'mall', 'market', 'boutique', 'store', 'shop'],
+        'Wellness': ['spa', 'gym', 'yoga', 'fitness', 'wellness', 'massage', 'beauty'],
+      };
+
+      // Special filters that use rating/review count instead of categories
+      if (filterType === 'Popular') {
+        filtered = [...allYelpData]
+          .sort((a, b) => (b.review_count || 0) - (a.review_count || 0))
+          .slice(0, 20);
+        setFilteredData(filtered);
+        return;
+      }
+      
+      if (filterType === 'Top Rated') {
+        filtered = [...allYelpData]
+          .filter(b => b.rating >= 4.5)
+          .sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        setFilteredData(filtered.length > 0 ? filtered : allYelpData);
+        return;
+      }
+
+      if (filterType === 'Together') {
+        // Group-friendly activities: tours, entertainment, restaurants, activities
+        const groupKeywords = ['tour', 'entertainment', 'restaurant', 'activity', 'attraction', 'amusement', 'escape', 'bowling', 'karaoke', 'game'];
+        filtered = allYelpData.filter(business => 
+          business.categories.some(cat => 
+            groupKeywords.some(keyword => 
+              cat.title.toLowerCase().includes(keyword)
+            )
+          )
+        );
+        setFilteredData(filtered.length > 0 ? filtered : allYelpData);
+        return;
+      }
+
+      const keywords = categoryMap[filterType] || [filterType.toLowerCase()];
+      
+      filtered = allYelpData.filter(business => 
+        business.categories.some(cat => 
+          keywords.some(keyword => 
+            cat.title.toLowerCase().includes(keyword)
+          )
+        )
+      );
+    }
+
+    // If no results, show all data
+    setFilteredData(filtered.length > 0 ? filtered : allYelpData);
+  };
+
+  // Fetch fresh data from Yelp API
+  const fetchYelpData = async () => {
     // Validate location before searching
     if (!profile.country || !profile.country.trim()) {
       setError('Location is required. Please update your profile to add a location.');
-      setYelpData([]);
+      setAllYelpData([]);
+      setFilteredData([]);
       return;
     }
 
     const trimmedLocation = profile.country.trim();
     if (trimmedLocation.length < 2) {
       setError('Location is too short. Use format: "City, Country" (e.g., "Tokyo, Japan")');
-      setYelpData([]);
+      setAllYelpData([]);
+      setFilteredData([]);
       return;
     }
 
     // Extract just the city and country/state from the location
-    // Handle formats like "Dubai Emirate, Dubai, United Arab Emirates" -> "Dubai, United Arab Emirates"
     const locationParts = trimmedLocation.split(',').map(p => p.trim());
     let simplifiedLocation = trimmedLocation;
     
     if (locationParts.length > 2) {
-      // Take the first and last parts (city and country)
       simplifiedLocation = `${locationParts[0]}, ${locationParts[locationParts.length - 1]}`;
     } else if (locationParts.length === 2) {
       simplifiedLocation = trimmedLocation;
     } else {
       setError('Location must include city and country/state (e.g., "Paris, France" or "New York, NY"). Please update your location in Edit Preferences.');
-      setYelpData([]);
-      return;
-    }
-
-    // Check cache first
-    const cacheKey = `${filter}-${term}`;
-    if (cachedData[cacheKey]) {
-      setYelpData(cachedData[cacheKey]);
-      setActiveFilter(filter);
+      setAllYelpData([]);
+      setFilteredData([]);
       return;
     }
 
@@ -112,7 +179,7 @@ export default function Dashboard() {
       // Build comprehensive search params with full user profile
       const searchParams = new URLSearchParams({
         location: simplifiedLocation,
-        term: term,
+        term: 'attractions restaurants activities',
         interests: profile.interests.join(','),
         limit: '50', // Get maximum results
         travelingWithKids: String(profile.travelingWithKids || false),
@@ -127,14 +194,9 @@ export default function Dashboard() {
         const data = await response.json();
         const businesses = data.businesses || [];
         
-        // Cache the results
-        setCachedData(prev => ({
-          ...prev,
-          [cacheKey]: businesses,
-        }));
-        
-        setYelpData(businesses);
-        setActiveFilter(filter);
+        setAllYelpData(businesses);
+        setFilteredData(businesses);
+        setActiveFilter('All');
 
         if (!businesses || businesses.length === 0) {
           setError('No results found. Try a different location or search term.');
@@ -152,14 +214,56 @@ export default function Dashboard() {
           errorMsg += 'Please try a more specific location.';
         }
         setError(errorMsg);
-        setYelpData([]);
+        setAllYelpData([]);
+        setFilteredData([]);
       }
     } catch (err) {
       console.error('Failed to fetch Yelp data:', err);
       setError('Connection error. Please try again.');
-      setYelpData([]);
+      setAllYelpData([]);
+      setFilteredData([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Append new data when companion is added (without replacing existing)
+  const appendYelpData = async (companionInterests: string[]) => {
+    if (!profile.country || companionInterests.length === 0) return;
+
+    const trimmedLocation = profile.country.trim();
+    const locationParts = trimmedLocation.split(',').map(p => p.trim());
+    let simplifiedLocation = trimmedLocation;
+    
+    if (locationParts.length > 2) {
+      simplifiedLocation = `${locationParts[0]}, ${locationParts[locationParts.length - 1]}`;
+    }
+
+    try {
+      const searchParams = new URLSearchParams({
+        location: simplifiedLocation,
+        term: companionInterests.slice(0, 2).join(' '),
+        interests: companionInterests.join(','),
+        limit: '20',
+      });
+      
+      const response = await fetch(`/api/yelp/search?${searchParams.toString()}`);
+      if (response.ok) {
+        const data = await response.json();
+        const newBusinesses = data.businesses || [];
+        
+        // Append only new businesses (avoid duplicates)
+        const existingIds = new Set(allYelpData.map(b => b.id));
+        const uniqueNewBusinesses = newBusinesses.filter((b: YelpBusiness) => !existingIds.has(b.id));
+        
+        if (uniqueNewBusinesses.length > 0) {
+          const combined = [...allYelpData, ...uniqueNewBusinesses];
+          setAllYelpData(combined);
+          setFilteredData(combined);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to append Yelp data:', err);
     }
   };
 
@@ -197,54 +301,11 @@ export default function Dashboard() {
     }
   };
 
-  const handleGenerateItinerary = async (numDays: number) => {
-    if (!sessionId) return;
 
-    setIsGeneratingItinerary(true);
-    
-    try {
-      const response = await fetch('/api/itinerary/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-session-id': sessionId,
-        },
-        body: JSON.stringify({
-          tripId: profile.currentTripId,
-          numDays,
-          location: profile.country,
-          interests: profile.interests,
-          businesses: yelpData,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Save itinerary to database
-        await fetch(`/api/trips/${profile.currentTripId}/itinerary`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-session-id': sessionId,
-          },
-          body: JSON.stringify({ itinerary: data.itinerary }),
-        });
-
-        // Close modal and navigate to trip planner
-        setGenerateModalOpen(false);
-        setLocation('/trip-planner');
-      }
-    } catch (error) {
-      console.error('Error generating itinerary:', error);
-    } finally {
-      setIsGeneratingItinerary(false);
-    }
-  };
 
   if (!profile.isOnboarded) return null;
 
-  const displayPlaces = yelpData.slice(0, 6).map((business, idx) => ({
+  const displayPlaces = filteredData.slice(0, 6).map((business, idx) => ({
     id: business.id,
     name: business.name,
     type: business.categories[0]?.title || 'Place',
@@ -277,9 +338,31 @@ export default function Dashboard() {
                     <Plus className="w-4 h-4" /> New Trip
                   </Button>
                   
+                  {/* Current Trip */}
+                  {profile.currentTripId && (
+                    <div className="space-y-2 mt-4">
+                      <h4 className="text-sm font-medium text-muted-foreground px-2">Current Trip</h4>
+                      {profile.trips.filter(trip => trip.id === profile.currentTripId).map(trip => (
+                        <div 
+                          key={trip.id} 
+                          className="p-3 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-between"
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium text-primary">{trip.name}</div>
+                            <div className="text-xs text-muted-foreground">{trip.country}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-primary font-medium">Active</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Past Trips */}
                   <div className="space-y-2 mt-4">
                     <h4 className="text-sm font-medium text-muted-foreground px-2">Past Trips</h4>
-                    {profile.trips.map(trip => (
+                    {profile.trips.filter(trip => trip.id !== profile.currentTripId).map(trip => (
                       <div 
                         key={trip.id} 
                         onClick={() => { loadTrip(trip.id); setSheetOpen(false); }}
@@ -301,8 +384,8 @@ export default function Dashboard() {
                         </div>
                       </div>
                     ))}
-                    {profile.trips.length === 0 && (
-                      <div className="text-sm text-muted-foreground px-2 italic">No saved trips yet</div>
+                    {profile.trips.filter(trip => trip.id !== profile.currentTripId).length === 0 && (
+                      <div className="text-sm text-muted-foreground px-2 italic">No past trips yet</div>
                     )}
                   </div>
                 </div>
@@ -322,7 +405,7 @@ export default function Dashboard() {
                 placeholder={`Search places in ${profile.country}...`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && void fetchYelpData(activeFilter, searchTerm)}
+                onKeyDown={(e) => e.key === 'Enter' && void fetchYelpData()}
                 disabled={isLoading}
                 className="pl-9 bg-secondary/50 border-none focus-visible:ring-1 focus-visible:ring-primary/20 rounded-full disabled:opacity-50" 
               />
@@ -330,10 +413,16 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="p-2 hover:bg-secondary rounded-full transition-colors relative">
-              <Bell className="w-5 h-5 text-muted-foreground" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full" />
-            </button>
+            <div className="hidden sm:flex items-center gap-2 text-sm font-medium text-primary border border-primary/30 px-3 py-1 rounded-full">
+              <span>Level {Math.min(profile.trips.length + 1, 4)}</span>
+              <span className="text-primary/40">•</span>
+              <span>
+                {profile.trips.length === 0 ? 'First Timer' :
+                 profile.trips.length === 10 ? 'Explorer' :
+                 profile.trips.length <= 20 ? 'Adventurer' :
+                 'Globe Trotter'}
+              </span>
+            </div>
             <Avatar 
               className="h-9 w-9 border-2 border-white shadow-sm cursor-pointer hover:ring-2 hover:ring-primary/20 transition-all"
               onClick={() => setLocation('/profile')}
@@ -375,54 +464,65 @@ export default function Dashboard() {
           </Button>
         </motion.div>
 
-        {(yelpData.length > 0 || isLoading) && (
+        {(allYelpData.length > 0 || isLoading) && (
           <div className="mb-8">
             <ScrollArea className="w-full">
               <div className="flex gap-2 pb-4 min-w-max">
-                {(['Top Rated', 'Do Together', 'Food', 'Activities'] as const).map((filter) => {
+                {(['All', 'Popular', 'Top Rated', 'Together', 'Food', 'Activities', 'Nightlife', 'Culture', 'Nature'] as const).map((filter) => {
                   const isActive = activeFilter === filter;
+                  const filterIcons: Record<string, string> = {
+                    'All': '🌍',
+                    'Popular': '🔥',
+                    'Top Rated': '⭐',
+                    'Together': '👥',
+                    'Food': '🍽️',
+                    'Activities': '🎯',
+                    'Nightlife': '🌙',
+                    'Culture': '🏛️',
+                    'Nature': '🌿',
+                  };
                   return (
                     <button
                       key={filter}
-                      onClick={() => {
-                        let term = searchTerm;
-                        if (filter === 'Top Rated') term = 'restaurants';
-                        if (filter === 'Do Together') term = 'activities';
-                        if (filter === 'Food') term = 'food';
-                        if (filter === 'Activities') term = 'things to do';
-                        
-                        void fetchYelpData(filter, term);
-                      }}
+                      onClick={() => filterData(filter)}
                       disabled={isLoading}
                       className={`
-                        px-4 py-2 rounded-full font-medium text-sm transition-all duration-200 whitespace-nowrap
+                        px-4 py-2 rounded-full font-medium text-sm transition-all duration-200 whitespace-nowrap flex items-center gap-1.5
                         ${isActive
                           ? 'bg-primary text-white shadow-lg shadow-primary/25'
                           : 'bg-white border border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground shadow-sm'}
                         disabled:opacity-50 disabled:cursor-not-allowed
                       `}
                     >
+                      <span>{filterIcons[filter]}</span>
                       {filter}
                     </button>
                   );
                 })}
-                {profile.interests.slice(0, 3).map((interest) => (
-                  <button
-                    key={interest}
-                    onClick={() => void fetchYelpData('Custom', interest)}
-                    disabled={isLoading}
-                    className="px-4 py-2 rounded-full font-medium text-sm transition-all duration-200 whitespace-nowrap bg-white border border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground shadow-sm disabled:opacity-50"
-                  >
-                    {interest}
-                  </button>
-                ))}
+                {profile.interests
+                  .filter(interest => !['All', 'Popular', 'Top Rated', 'Together', 'Food', 'Activities', 'Nightlife', 'Culture', 'Nature'].includes(interest))
+                  .slice(0, 2)
+                  .map((interest) => (
+                    <button
+                      key={interest}
+                      onClick={() => filterData(interest)}
+                      disabled={isLoading}
+                      className={`px-4 py-2 rounded-full font-medium text-sm transition-all duration-200 whitespace-nowrap ${
+                        activeFilter === interest
+                          ? 'bg-primary text-white shadow-lg shadow-primary/25'
+                          : 'bg-white border border-border/50 text-muted-foreground hover:border-primary/30 hover:text-foreground shadow-sm'
+                      } disabled:opacity-50`}
+                    >
+                      {interest}
+                    </button>
+                  ))}
               </div>
               <ScrollBar orientation="horizontal" />
             </ScrollArea>
           </div>
         )}
 
-        {!error && yelpData.length > 0 && (
+        {!error && filteredData.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <PlaceDetailModal
               open={detailModalOpen}
@@ -438,13 +538,6 @@ export default function Dashboard() {
               }}
             />
             
-            <GenerateItineraryModal
-              open={generateModalOpen}
-              onOpenChange={setGenerateModalOpen}
-              onGenerate={handleGenerateItinerary}
-              isGenerating={isGeneratingItinerary}
-            />
-            
             <div className="lg:col-span-8 space-y-8">
               <CityHeader 
                 city={profile.country} 
@@ -455,7 +548,7 @@ export default function Dashboard() {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold">We think you'll love these</h3>
-                <button onClick={() => void fetchYelpData(activeFilter, searchTerm)} disabled={isLoading} className="text-sm font-medium text-primary hover:underline disabled:opacity-50">
+                <button onClick={() => void fetchYelpData()} disabled={isLoading} className="text-sm font-medium text-primary hover:underline disabled:opacity-50">
                   {isLoading ? 'Searching...' : 'Refresh'}
                 </button>
               </div>
@@ -506,7 +599,7 @@ export default function Dashboard() {
                       <div 
                         className="relative aspect-4/3 overflow-hidden cursor-pointer"
                         onClick={() => {
-                          const yelpBusiness = yelpData.find(b => b.id === place.id);
+                          const yelpBusiness = allYelpData.find(b => b.id === place.id);
                           if (yelpBusiness) {
                             setSelectedPlace(yelpBusiness);
                             setDetailModalOpen(true);
@@ -604,7 +697,7 @@ export default function Dashboard() {
                   <p className="text-sm text-muted-foreground italic">No favorites yet. Heart a place to add it here!</p>
                 ) : (
                   getFavorites().map((fav) => {
-                    const yelpBusiness = yelpData.find(b => b.id === fav.yelpBusinessId);
+                    const yelpBusiness = allYelpData.find(b => b.id === fav.yelpBusinessId);
                     if (!yelpBusiness) return null;
                     
                     return (
@@ -662,7 +755,7 @@ export default function Dashboard() {
                 </h3>
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {getVisited().map((visited) => {
-                    const yelpBusiness = yelpData.find(b => b.id === visited.yelpBusinessId);
+                    const yelpBusiness = allYelpData.find(b => b.id === visited.yelpBusinessId);
                     if (!yelpBusiness) return null;
                     
                     return (
@@ -716,8 +809,8 @@ export default function Dashboard() {
 
             <Card className="p-4 border-none shadow-lg">
               <h3 className="font-bold mb-1">Your Map</h3>
-              <p className="text-sm text-muted-foreground mb-4">View all {yelpData.length} recommended spots on the map.</p>
-              <MapView places={yelpData.map(b => ({
+              <p className="text-sm text-muted-foreground mb-4">View all {allYelpData.length} recommended spots on the map.</p>
+              <MapView places={allYelpData.map(b => ({
                 id: b.id,
                 name: b.name,
                 rating: b.rating,
@@ -753,7 +846,7 @@ export default function Dashboard() {
                 {profile.companions.length === 0 && (
                   <p className="text-sm text-muted-foreground italic">Flying solo on this one.</p>
                 )}
-                <ManageFriendsModal />
+                <ManageFriendsModal onCompanionAdded={() => fetchYelpData()} />
               </div>
             </Card>
 
@@ -766,7 +859,7 @@ export default function Dashboard() {
                 Plan your daily activities and let Yelp help you discover the best spots.
               </p>
               <Button 
-                onClick={() => setGenerateModalOpen(true)} 
+                onClick={() => setLocation('/trip-planner')} 
                 className="w-full gap-2"
                 variant="outline"
               >
@@ -779,7 +872,7 @@ export default function Dashboard() {
         )}
 
         {/* Loading Skeleton */}
-        {isLoading && yelpData.length === 0 && (
+        {isLoading && allYelpData.length === 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <div className="lg:col-span-8 space-y-8">
               {/* Hero skeleton */}
@@ -817,7 +910,7 @@ export default function Dashboard() {
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
                 {error}
               </div>
-              <Button onClick={() => void fetchYelpData(activeFilter, searchTerm)}>
+              <Button onClick={() => void fetchYelpData()}>
                 Try Again
               </Button>
             </div>
@@ -825,7 +918,7 @@ export default function Dashboard() {
         )}
 
         {/* Empty State (no loading, no error, no data) */}
-        {!isLoading && !error && yelpData.length === 0 && (
+        {!isLoading && !error && allYelpData.length === 0 && (
           <div className="flex items-center justify-center py-16 text-center">
             <div className="max-w-md space-y-6">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto">

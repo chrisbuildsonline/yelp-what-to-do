@@ -1,27 +1,41 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar, Sparkles, Loader } from 'lucide-react';
+import { Calendar, Sparkles, Loader, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface GenerateItineraryModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onGenerate: (numDays: number) => void;
   isGenerating: boolean;
+  currentDays?: number;
+  isRegenerate?: boolean;
 }
 
 export function GenerateItineraryModal({ 
   open, 
   onOpenChange, 
   onGenerate,
-  isGenerating 
+  isGenerating,
+  currentDays = 0,
+  isRegenerate = false
 }: GenerateItineraryModalProps) {
-  const [numDays, setNumDays] = useState(3);
+  const [numDays, setNumDays] = useState(currentDays || 3);
+
+  // Update numDays when currentDays changes
+  useEffect(() => {
+    if (currentDays > 0) {
+      setNumDays(currentDays);
+    }
+  }, [currentDays]);
 
   const handleGenerate = () => {
+    console.log('Generating itinerary with', numDays, 'days');
     onGenerate(numDays);
+    onOpenChange(false);
   };
 
   return (
@@ -30,26 +44,40 @@ export function GenerateItineraryModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="w-5 h-5 text-primary" />
-            Generate Your Itinerary
+            {isRegenerate ? 'Regenerate Itinerary' : 'Generate Your Itinerary'}
           </DialogTitle>
           <DialogDescription>
-            Create a personalized day-by-day plan based on top-rated Yelp places in your destination.
+            {isRegenerate 
+              ? 'Modify the number of days and regenerate your itinerary.'
+              : 'Create a personalized day-by-day plan based on top-rated Yelp places in your destination.'
+            }
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="numDays">How many days is your trip?</Label>
-            <Input
-              id="numDays"
-              type="number"
-              min="1"
-              max="14"
-              value={numDays}
-              onChange={(e) => setNumDays(parseInt(e.target.value) || 3)}
-              className="text-center text-lg font-semibold"
-            />
-            <p className="text-xs text-muted-foreground">
+          {isRegenerate && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                This will remove your current plan and create a new one. Any custom activities or changes you've made will be lost.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-3">
+            <Label htmlFor="numDays" className="text-lg font-semibold">How many days is your trip?</Label>
+            <div className="flex items-center justify-center">
+              <Input
+                id="numDays"
+                type="number"
+                min="1"
+                max="30"
+                value={numDays}
+                onChange={(e) => setNumDays(parseInt(e.target.value) || 3)}
+                className="text-center font-bold shadow-none focus-visible:ring-2 w-32 h-24 !border-none !text-[64px]"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground text-center">
               We'll create a balanced itinerary with breakfast, activities, and dining recommendations.
             </p>
           </div>
@@ -67,6 +95,7 @@ export function GenerateItineraryModal({
               onClick={handleGenerate}
               disabled={isGenerating || numDays < 1}
               className="flex-1 gap-2"
+              variant={isRegenerate ? 'destructive' : 'default'}
             >
               {isGenerating ? (
                 <>
@@ -76,7 +105,7 @@ export function GenerateItineraryModal({
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  Generate
+                  {isRegenerate ? 'Yes, Regenerate' : 'Generate'}
                 </>
               )}
             </Button>
