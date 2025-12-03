@@ -1,8 +1,24 @@
 {
-  "name": "rest-express",
+  "name": "yelp-what-to-do",
   "version": "1.0.0",
   "type": "module",
   "license": "MIT",
+  "author": "Yelp! What to do? Contributors",
+  "description": "AI-powered travel recommendation app using Yelp Fusion API",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/yelp-what-to-do"
+  },
+  "keywords": [
+    "yelp",
+    "travel",
+    "recommendations",
+    "ai",
+    "trip-planning",
+    "react",
+    "typescript",
+    "express"
+  ],
   "scripts": {
     "dev:client": "vite dev --port 5002",
     "dev": "PORT=5002 NODE_ENV=development tsx server/index-dev.ts",
