@@ -74,7 +74,6 @@ npm start
 - **Yelp API Key**: Get from https://www.yelp.com/developers/v3/manage_app
 
 ### Optional
-- **OpenAI API Key**: Get from https://platform.openai.com/api-keys
 
 ## 🌐 API Endpoints
 

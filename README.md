@@ -48,9 +48,6 @@ Create a `.env` file in the root directory:
 YELP_API_KEY=your_yelp_api_key_here
 YELP_CLIENT_ID=your_yelp_client_id_here
 
-# Optional - For AI recommendations (has mock fallback)
-OPENAI_API_KEY=your_openai_key_here
-
 # Server configuration
 PORT=5002
 NODE_ENV=development
@@ -119,7 +116,6 @@ That's it! 🎉
 ### APIs
 - **Yelp Fusion API** - Business search and details
 - **OpenStreetMap Nominatim** - Location autocomplete (free, no API key)
-- **OpenAI API** - AI recommendations (optional)
 
 ### Database
 - **In-Memory** - Development (data resets on restart)
@@ -286,7 +282,6 @@ curl "http://localhost:5002/api/yelp/search?location=Tokyo&term=sushi"
 |----------|----------|-------------|---------|
 | `YELP_API_KEY` | ✅ Yes | Yelp Fusion API key | `7_tnoU4o...` |
 | `YELP_CLIENT_ID` | ✅ Yes | Yelp Client ID | `VwstclHy...` |
-| `OPENAI_API_KEY` | ❌ No | OpenAI API key (optional) | `sk-proj-...` |
 | `PORT` | ❌ No | Server port | `5002` |
 | `NODE_ENV` | ❌ No | Environment | `development` |
 
@@ -353,7 +348,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ### Third-Party Services
 - **Yelp Fusion API** - [Terms of Service](https://www.yelp.com/developers/api_terms)
 - **OpenStreetMap** - [Usage Policy](https://operations.osmfoundation.org/policies/nominatim/)
-- **OpenAI API** - [Terms of Use](https://openai.com/policies/terms-of-use)
 
 ## 👨‍💻 Author
 

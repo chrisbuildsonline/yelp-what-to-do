@@ -36,23 +36,17 @@ This software integrates with the following third-party services, which have the
 - License: Open Database License (ODbL)
 - Attribution: © OpenStreetMap contributors
 
-### OpenAI API (Optional)
-- Terms of Use: https://openai.com/policies/terms-of-use
-- Privacy Policy: https://openai.com/policies/privacy-policy
-- API Documentation: https://platform.openai.com/docs
-
 ## Attribution Requirements
 
 When using this software, please ensure compliance with:
 
 1. **Yelp Attribution**: Display Yelp logo and attribution as required by Yelp API Terms
 2. **OpenStreetMap Attribution**: Include "© OpenStreetMap contributors" when using location data
-3. **OpenAI Attribution**: Follow OpenAI's usage policies if using AI recommendations
 
 ## Disclaimer
 
 This software is provided for educational and demonstration purposes. Users are responsible for:
-- Obtaining their own API keys from Yelp, OpenAI, and other services
+- Obtaining their own API keys from Yelp and other services
 - Complying with all third-party terms of service
 - Ensuring proper data handling and privacy compliance
 - Rate limiting and responsible API usage
@@ -71,7 +65,6 @@ This software is licensed under MIT and can be used commercially, but:
 - You must obtain your own API keys and licenses for third-party services
 - You are responsible for compliance with all third-party terms of service
 - Commercial use of Yelp data requires compliance with Yelp's commercial terms
-- OpenAI API usage is subject to OpenAI's pricing and terms
 
 ## Contributing
 

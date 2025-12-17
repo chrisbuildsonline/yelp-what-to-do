@@ -86,7 +86,6 @@
     "maplibre-gl": "^5.13.0",
     "memorystore": "^1.6.7",
     "next-themes": "^0.4.6",
-    "openai": "^6.9.1",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
     "pg": "^8.16.3",

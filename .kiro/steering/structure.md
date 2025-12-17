@@ -142,7 +142,6 @@ yelp-ai-tour-guide/
 ### Backend
 - express - Web framework
 - bcrypt - Password hashing
-- openai - AI recommendations
 - axios - HTTP client
 - drizzle-orm - Database ORM
 

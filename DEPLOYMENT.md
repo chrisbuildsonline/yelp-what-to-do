@@ -8,7 +8,6 @@ The app is production-ready and can be deployed immediately.
 - Node.js 20+
 - npm or yarn
 - Yelp API key (required)
-- OpenAI API key (optional)
 
 ### Local Development
 
@@ -135,7 +134,6 @@ NODE_ENV=production
 
 Optional:
 ```
-OPENAI_API_KEY=your_openai_key
 DATABASE_URL=postgresql://user:pass@host/db
 ```
 

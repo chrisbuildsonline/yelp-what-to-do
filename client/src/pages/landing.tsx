@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { MapPin, Compass, ArrowRight, Star, Heart, Coffee } from "lucide-react";
@@ -11,6 +11,20 @@ import { AuthModal } from "@/components/auth-modal";
 
 export default function Landing() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [userCount, setUserCount] = useState<number>(0);
+
+  useEffect(() => {
+    // Fetch user count from API
+    fetch('/api/stats/users')
+      .then(res => res.json())
+      .then(data => {
+        setUserCount(data.count || 0);
+      })
+      .catch(err => {
+        console.error('Failed to fetch user count:', err);
+        setUserCount(0);
+      });
+  }, []);
 
   const container = {
     hidden: { opacity: 0 },
@@ -105,7 +119,14 @@ export default function Landing() {
                       </div>
                     ))}
                   </div>
-                  <span>Join 10,000+ travelers</span>
+                  <span>
+                    {userCount >= 100 
+                      ? `Join ${userCount.toLocaleString()}+ travelers`
+                      : userCount > 0 
+                        ? `Join ${userCount} ${userCount === 1 ? 'traveler' : 'travelers'}`
+                        : 'Join 10,000+ travelers'
+                    }
+                  </span>
                 </div>
                 <div className="h-4 w-px bg-border" />
                 <div className="flex items-center gap-1">

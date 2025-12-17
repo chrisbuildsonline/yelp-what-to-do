@@ -281,6 +281,21 @@ export class SupabaseDB {
       throw error;
     }
   }
+
+  async getUserCount(): Promise<number> {
+    try {
+      const { count, error } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true });
+
+      if (error) throw error;
+
+      return count || 0;
+    } catch (error) {
+      console.error('Error getting user count:', error);
+      return 0;
+    }
+  }
 }
 
 export const supabaseDB = new SupabaseDB();

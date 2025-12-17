@@ -4,12 +4,7 @@ import { storage } from "./storage";
 import axios from "axios";
 import { supabaseDB } from "./supabase-db";
 import bcrypt from "bcrypt";
-import { OpenAI } from "openai";
 import { getCachedYelpResults, setCachedYelpResults } from "./yelp-cache";
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
 
 // Session storage (in production, use proper session management)
 const sessions = new Map<string, { userId: string; username: string }>();
@@ -502,133 +497,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid businesses data" });
       }
 
-      // If OpenAI key is not configured, use mock recommendations
-      if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === "sk-placeholder") {
-        // Enhanced mock recommendations based on interests and context
-        const recommendations = businesses
-          .slice(0, 5)
-          .map((b: any, idx: number) => {
-            const matchedInterests = interests.filter((interest: string) =>
-              b.categories.some((c: any) => c.title.toLowerCase().includes(interest.toLowerCase()))
-            );
+      // Enhanced recommendations based on interests and context
+      const recommendations = businesses
+        .slice(0, 5)
+        .map((b: any, idx: number) => {
+          const matchedInterests = interests.filter((interest: string) =>
+            b.categories.some((c: any) => c.title.toLowerCase().includes(interest.toLowerCase()))
+          );
 
-            let reason = `Highly rated with ${b.review_count} reviews`;
-            
-            if (matchedInterests.length > 0) {
-              reason = `Perfect for your interest in ${matchedInterests[0]}`;
+          let reason = `Highly rated with ${b.review_count} reviews`;
+          
+          if (matchedInterests.length > 0) {
+            reason = `Perfect for your interest in ${matchedInterests[0]}`;
+          }
+          
+          if (travelingWithKids && kidsAges && kidsAges.length > 0) {
+            reason += ` and family-friendly`;
+          }
+          
+          if (companions && companions.length > 0) {
+            const companionInterests = companions.flatMap((c: any) => c.interests);
+            const sharedInterests = interests.filter((i: string) => companionInterests.includes(i));
+            if (sharedInterests.length > 0) {
+              reason += ` - everyone will enjoy it`;
+            } else {
+              reason += ` - great for your group`;
             }
-            
-            if (travelingWithKids && kidsAges && kidsAges.length > 0) {
-              reason += ` and family-friendly`;
-            }
-            
-            if (companions && companions.length > 0) {
-              const companionInterests = companions.flatMap((c: any) => c.interests);
-              const sharedInterests = interests.filter((i: string) => companionInterests.includes(i));
-              if (sharedInterests.length > 0) {
-                reason += ` - everyone will enjoy it`;
-              } else {
-                reason += ` - great for your group`;
-              }
-            }
+          }
 
-            return {
-              businessId: b.id,
-              businessName: b.name,
-              reason,
-            };
-          });
+          return {
+            businessId: b.id,
+            businessName: b.name,
+            reason,
+          };
+        });
 
-        return res.json(recommendations);
-      }
-
-      // Build comprehensive context for AI
-      const companionDetails = companions && companions.length > 0
-        ? companions.map((c: any) => {
-            const details = [`${c.name} (${c.age || 'age unknown'})`];
-            if (c.interests && c.interests.length > 0) {
-              details.push(`interests: ${c.interests.join(", ")}`);
-            }
-            return details.join(", ");
-          }).join("; ")
-        : "Solo traveler";
-
-      const familyContext = travelingWithKids && kidsAges && kidsAges.length > 0
-        ? `\nTraveling with kids aged: ${kidsAges.join(", ")} - prioritize family-friendly venues with good atmosphere for children.`
-        : "";
-
-      const groupDynamics = companions && companions.length > 0
-        ? `\nGroup composition: ${companions.length} travel companions. Consider places that appeal to diverse interests and work well for groups.`
-        : "";
-
-      // Use real OpenAI API with enhanced prompt
-      const prompt = `You are an expert travel recommendation AI specializing in personalized destination discovery. Your goal is to recommend the most suitable places based on the traveler's unique profile, group dynamics, and preferences.
-
-TRAVELER PROFILE:
-- Primary interests: ${interests.join(", ")}
-- Age: ${userAge || "not specified"}
-- Travel companions: ${companionDetails}${familyContext}${groupDynamics}
-- Destination: ${location}
-
-RECOMMENDATION CRITERIA:
-1. Interest Alignment: Prioritize places that match the traveler's stated interests
-2. Group Compatibility: For group travel, find places that appeal to multiple people's interests
-3. Experience Quality: Consider ratings and review counts as indicators of quality
-4. Variety: Suggest diverse types of experiences (don't recommend similar places)
-5. Accessibility: For families with kids, prioritize welcoming, safe environments
-6. Unique Value: Explain what makes each place special and why it's worth visiting
-
-AVAILABLE BUSINESSES:
-${businesses
-  .slice(0, 15)
-  .map(
-    (b: any, idx: number) =>
-      `${idx + 1}. ${b.name}
-   Rating: ${b.rating}/5 (${b.review_count} reviews)
-   Categories: ${b.categories.map((c: any) => c.title).join(", ")}
-   Price: ${b.price || "Not specified"}
-   Distance: ${(b.distance / 1609).toFixed(1)} miles`
-  )
-  .join("\n\n")}
-
-TASK:
-Select the top 3-5 most suitable recommendations. For each recommendation:
-1. Explain why it matches their interests
-2. Consider how it fits with their travel companions
-3. Highlight what makes it special for their specific trip
-4. Keep reasoning concise but compelling (1-2 sentences max)
-
-RESPONSE FORMAT:
-Return ONLY valid JSON array, no other text:
-[
-  {
-    "businessId": "yelp_business_id",
-    "businessName": "exact_business_name",
-    "reason": "Compelling reason why this is perfect for them"
-  }
-]`;
-
-      const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 500,
-      });
-
-      const content = completion.choices[0].message.content;
-      if (!content) {
-        return res.status(500).json({ error: "No response from AI" });
-      }
-
-      const recommendations = JSON.parse(content);
       res.json(recommendations);
     } catch (error: any) {
-      console.error("AI recommendation error:", error);
+      console.error("Recommendation error:", error);
       res
         .status(500)
         .json({ error: error.message || "Failed to generate recommendations" });
@@ -883,6 +789,18 @@ Return ONLY valid JSON array, no other text:
     } catch (error: any) {
       console.error("Save place error:", error);
       res.status(500).json({ error: error.message || "Failed to save place" });
+    }
+  });
+
+  // Get user count for landing page
+  app.get("/api/stats/users", async (req, res) => {
+    try {
+      const userCount = await supabaseDB.getUserCount();
+      res.json({ count: userCount });
+    } catch (error: any) {
+      console.error("Get user count error:", error);
+      // Return a default count if there's an error
+      res.json({ count: 0 });
     }
   });
 

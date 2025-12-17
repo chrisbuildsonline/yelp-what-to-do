@@ -5,7 +5,7 @@
 An AI-powered travel recommendation app that helps users discover personalized places to visit based on their interests and travel companions.
 
 ### Core Value Proposition
-- **Personalized Discovery**: AI-powered recommendations based on user interests and travel companions
+- **Personalized Discovery**: Smart recommendations based on user interests and travel companions
 - **Real Data**: Integrates with Yelp Fusion API for authentic business information
 - **Trip Planning**: Organize multiple trips with saved places and itineraries
 - **Social Travel**: Include travel companions and their interests in recommendations
@@ -14,7 +14,7 @@ An AI-powered travel recommendation app that helps users discover personalized p
 1. **Authentication**: Secure user registration and login with bcrypt password hashing
 2. **Trip Management**: Create and manage multiple trips with location, interests, and companions
 3. **Yelp Integration**: Real-time search of businesses with ratings, reviews, and distance
-4. **AI Recommendations**: OpenAI-powered suggestions based on user preferences (with mock fallback)
+4. **Smart Recommendations**: Personalized suggestions based on user preferences and context
 5. **Saved Places**: Save recommended places to trips for later reference
 6. **Responsive UI**: Beautiful, mobile-friendly interface with smooth animations
 
