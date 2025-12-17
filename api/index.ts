@@ -198,7 +198,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .select('id, username, created_at')
         .order('created_at', { ascending: false });
 
-      return res.json(users || []);
+      return res.json({ 
+        count: users?.length || 0,
+        users: users || []
+      });
     }
 
     if (path === '/api/recommendations' && method === 'POST') {
