@@ -130,7 +130,7 @@ export default function Landing() {
                       ? `Join ${userCount.toLocaleString()}+ travelers`
                       : userCount > 0 
                         ? `Join ${userCount} ${userCount === 1 ? 'traveler' : 'travelers'}`
-                        : 'Join 10,000+ travelers'
+                        : 'No travelers yet'
                     }
                   </span>
                 </div>
