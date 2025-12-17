@@ -64,7 +64,7 @@ export default function Dashboard() {
       fetchYelpData();
       setError(null);
     }
-  }, [profile.isOnboarded, sessionId]);
+  }, [profile.isOnboarded, profile.country, sessionId]);
 
   // Search function to filter data by search term
   const searchData = (searchQuery: string) => {
@@ -213,7 +213,7 @@ export default function Dashboard() {
       const searchParams = new URLSearchParams({
         location: simplifiedLocation,
         term: 'attractions restaurants activities',
-        interests: profile.interests.join(','),
+        interests: (Array.isArray(profile.interests) ? profile.interests : []).join(','),
         limit: '50', // Get maximum results
         travelingWithKids: String(profile.travelingWithKids || false),
         kidsAges: (profile.kidsAges || []).join(','),
@@ -984,11 +984,20 @@ export default function Dashboard() {
                 <p className="text-sm text-muted-foreground mb-6">
                   Why don't you add some? Update your location and interests to discover amazing places.
                 </p>
+                <div className="text-xs text-muted-foreground mb-4 p-2 bg-gray-50 rounded">
+                  Debug: Location: "{profile.country}" | Onboarded: {profile.isOnboarded ? 'Yes' : 'No'} | Session: {sessionId ? 'Yes' : 'No'}
+                </div>
               </div>
-              <Button onClick={() => setLocation('/edit-preferences')} className="gap-2">
-                <Edit2 className="w-4 h-4" />
-                Update Preferences
-              </Button>
+              <div className="flex gap-3">
+                <Button onClick={() => fetchYelpData()} className="gap-2" disabled={isLoading}>
+                  <Search className="w-4 h-4" />
+                  {isLoading ? 'Searching...' : 'Search Places'}
+                </Button>
+                <Button onClick={() => setLocation('/edit-preferences')} variant="outline" className="gap-2">
+                  <Edit2 className="w-4 h-4" />
+                  Update Preferences
+                </Button>
+              </div>
             </div>
           </div>
         )}

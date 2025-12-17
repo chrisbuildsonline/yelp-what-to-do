@@ -4,6 +4,8 @@ export interface Companion {
   name: string;
   interests: string[];
   age?: number;
+  familyFriendly?: boolean;
+  kidsAge?: number[];
 }
 
 export interface SavedPlace {
@@ -36,8 +38,8 @@ export interface UserProfile {
   isOnboarded: boolean;
   trips: Trip[];
   age?: number;
-  travelingWithKids?: boolean;
-  kidsAges?: number[];
+  familyFriendly?: boolean;
+  kidsAge?: number[];
 }
 
 export interface User {
@@ -83,6 +85,9 @@ const DEFAULT_PROFILE: UserProfile = {
   currentTripId: '',
   isOnboarded: false,
   trips: [],
+  age: undefined,
+  familyFriendly: false,
+  kidsAge: [],
 };
 
 export function UserProvider({ children }: { children: ReactNode }) {
@@ -151,9 +156,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
             trips: formattedTrips,
             currentTripId: mostRecentTrip.id,
             currentTripName: mostRecentTrip.name,
-            country: mostRecentTrip.location,
-            interests: mostRecentTrip.interests || [],
-            companions: mostRecentTrip.companions || [],
+            country: mostRecentTrip.location || '',
+            interests: Array.isArray(mostRecentTrip.interests) ? mostRecentTrip.interests : [],
+            companions: Array.isArray(mostRecentTrip.companions) ? mostRecentTrip.companions : [],
             isOnboarded: true,
           }));
         }
@@ -164,7 +169,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const updateProfile = (updates: Partial<UserProfile>) => {
-    setProfile(prev => ({ ...prev, ...updates }));
+    setProfile(prev => ({ 
+      ...prev, 
+      ...updates,
+      // Ensure arrays are always arrays
+      interests: Array.isArray(updates.interests) ? updates.interests : prev.interests || [],
+      companions: Array.isArray(updates.companions) ? updates.companions : prev.companions || [],
+      kidsAge: Array.isArray(updates.kidsAge) ? updates.kidsAge : prev.kidsAge || [],
+    }));
   };
 
   const toggleInterest = (interest: string) => {

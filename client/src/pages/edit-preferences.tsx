@@ -43,7 +43,12 @@ export default function EditPreferences() {
   const [pendingLocation, setPendingLocation] = useState('');
 
   useEffect(() => {
-    setLocalProfile(profile);
+    setLocalProfile({
+      ...profile,
+      interests: Array.isArray(profile.interests) ? profile.interests : [],
+      companions: Array.isArray(profile.companions) ? profile.companions : [],
+      kidsAge: Array.isArray(profile.kidsAge) ? profile.kidsAge : [],
+    });
   }, [profile]);
 
   const handleLocationChange = (location: string) => {
@@ -62,12 +67,15 @@ export default function EditPreferences() {
   };
 
   const handleToggleInterest = (interest: string) => {
-    setLocalProfile(prev => ({
-      ...prev,
-      interests: prev.interests.includes(interest)
-        ? prev.interests.filter(i => i !== interest)
-        : [...prev.interests, interest],
-    }));
+    setLocalProfile(prev => {
+      const currentInterests = Array.isArray(prev.interests) ? prev.interests : [];
+      return {
+        ...prev,
+        interests: currentInterests.includes(interest)
+          ? currentInterests.filter(i => i !== interest)
+          : [...currentInterests, interest],
+      };
+    });
   };
 
   const handleSave = () => {
@@ -316,7 +324,7 @@ export default function EditPreferences() {
                   {AVAILABLE_INTERESTS.map(interest => (
                     <Badge
                       key={interest}
-                      variant={localProfile.interests.includes(interest) ? 'default' : 'outline'}
+                      variant={(Array.isArray(localProfile.interests) ? localProfile.interests : []).includes(interest) ? 'default' : 'outline'}
                       className="cursor-pointer px-3 py-1.5"
                       onClick={() => handleToggleInterest(interest)}
                     >
@@ -443,7 +451,7 @@ export default function EditPreferences() {
                 </div>
 
                 {/* Companions List */}
-                {profile.companions.length > 0 && (
+                {Array.isArray(profile.companions) && profile.companions.length > 0 && (
                   <div className="space-y-3">
                     <h4 className="font-semibold text-sm">Your Travel Buddies ({profile.companions.length})</h4>
                     <div className="space-y-2">
