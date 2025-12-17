@@ -25,7 +25,7 @@ const interestMapping: Record<string, { terms: string[]; categories: string[] }>
 };
 
 function generateSessionId() {
-  return Math.random().toString(36).substr(2, 32);
+  return Math.random().toString(36).substring(2, 34);
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {

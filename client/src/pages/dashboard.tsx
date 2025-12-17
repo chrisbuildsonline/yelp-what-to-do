@@ -46,7 +46,7 @@ export default function Dashboard() {
   const [allYelpData, setAllYelpData] = useState<YelpBusiness[]>([]); // Store all fetched data
   const [filteredData, setFilteredData] = useState<YelpBusiness[]>([]); // Display filtered data
   const [isLoading, setIsLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('restaurants');
+  const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>('All');
   const [selectedPlace, setSelectedPlace] = useState<YelpBusiness | null>(null);
@@ -66,16 +66,45 @@ export default function Dashboard() {
     }
   }, [profile.isOnboarded, sessionId]);
 
+  // Search function to filter data by search term
+  const searchData = (searchQuery: string) => {
+    if (!searchQuery.trim()) {
+      // If no search term, apply current filter
+      filterData(activeFilter);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    const searchResults = allYelpData.filter(business => 
+      business.name.toLowerCase().includes(query) ||
+      business.categories.some(cat => cat.title.toLowerCase().includes(query)) ||
+      (business.price && business.price.toLowerCase().includes(query))
+    );
+    
+    setFilteredData(searchResults);
+  };
+
   // Filter existing data based on category
   const filterData = (filterType: string) => {
     setActiveFilter(filterType);
     
+    // If there's a search term, apply search first then filter
+    let dataToFilter = allYelpData;
+    if (searchTerm.trim()) {
+      const query = searchTerm.toLowerCase().trim();
+      dataToFilter = allYelpData.filter(business => 
+        business.name.toLowerCase().includes(query) ||
+        business.categories.some(cat => cat.title.toLowerCase().includes(query)) ||
+        (business.price && business.price.toLowerCase().includes(query))
+      );
+    }
+    
     if (filterType === 'All') {
-      setFilteredData(allYelpData);
+      setFilteredData(dataToFilter);
       return;
     }
 
-    let filtered = allYelpData;
+    let filtered = dataToFilter;
 
     // First try to use custom tags from backend (faster and more accurate)
     if (allYelpData.length > 0 && allYelpData[0].customTags) {
@@ -136,8 +165,12 @@ export default function Dashboard() {
       );
     }
 
-    // If no results, show all data
-    setFilteredData(filtered.length > 0 ? filtered : allYelpData);
+    // If no results, show all data (or search results if searching)
+    if (searchTerm.trim()) {
+      setFilteredData(filtered.length > 0 ? filtered : dataToFilter);
+    } else {
+      setFilteredData(filtered.length > 0 ? filtered : allYelpData);
+    }
   };
 
   // Fetch fresh data from Yelp API
@@ -404,11 +437,33 @@ export default function Dashboard() {
               <Input 
                 placeholder={`Search places in ${profile.country}...`}
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && void fetchYelpData()}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  searchData(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    searchData(searchTerm);
+                  }
+                  if (e.key === 'Escape') {
+                    setSearchTerm('');
+                    searchData('');
+                  }
+                }}
                 disabled={isLoading}
-                className="pl-9 bg-secondary/50 border-none focus-visible:ring-1 focus-visible:ring-primary/20 rounded-full disabled:opacity-50" 
+                className="pl-9 pr-9 bg-secondary/50 border-none focus-visible:ring-1 focus-visible:ring-primary/20 rounded-full disabled:opacity-50" 
               />
+              {searchTerm && (
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    searchData('');
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -876,7 +931,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <div className="lg:col-span-8 space-y-8">
               {/* Hero skeleton */}
-              <Skeleton className="w-full aspect-[21/9] rounded-2xl" />
+              <Skeleton className="w-full aspect-21/9 rounded-2xl" />
               
               {/* Cards skeleton */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
