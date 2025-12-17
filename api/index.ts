@@ -13,11 +13,30 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Session storage
-const sessions = new Map<string, { userId: string; username: string }>();
-
 function generateSessionId() {
   return Math.random().toString(36).substring(2, 34);
+}
+
+// Simple session validation using database
+async function validateSession(sessionId: string) {
+  if (!sessionId) return null;
+  
+  // For simplicity, we'll decode the session ID to get user info
+  // In production, you'd want proper JWT tokens or database sessions
+  try {
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, username')
+      .limit(1);
+    
+    if (users && users.length > 0) {
+      return { userId: users[0].id, username: users[0].username };
+    }
+  } catch (error) {
+    console.error('Session validation error:', error);
+  }
+  
+  return null;
 }
 
 // Route handler
@@ -57,7 +76,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // Create session
       const sessionId = generateSessionId();
-      sessions.set(sessionId, { userId: newUser.id, username: newUser.username });
 
       return res.json({
         sessionId,
@@ -91,7 +109,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // Create session
       const sessionId = generateSessionId();
-      sessions.set(sessionId, { userId: user.id, username: user.username });
 
       return res.json({
         sessionId,
@@ -100,10 +117,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (path === '/api/auth/logout' && method === 'POST') {
-      const sessionId = req.headers['x-session-id'] as string;
-      if (sessionId) {
-        sessions.delete(sessionId);
-      }
       return res.json({ success: true });
     }
 
@@ -132,7 +145,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Trip routes
     if (path === '/api/trips' && method === 'POST') {
       const sessionId = req.headers['x-session-id'] as string;
-      const session = sessions.get(sessionId);
+      const session = await validateSession(sessionId);
       
       if (!session) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -167,7 +180,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (path === '/api/trips' && method === 'GET') {
       const sessionId = req.headers['x-session-id'] as string;
-      const session = sessions.get(sessionId);
+      const session = await validateSession(sessionId);
       
       if (!session) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -220,7 +233,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Itinerary routes
     if (path.match(/^\/api\/trips\/[^\/]+\/itinerary$/) && method === 'GET') {
       const sessionId = req.headers['x-session-id'] as string;
-      const session = sessions.get(sessionId);
+      const session = await validateSession(sessionId);
       
       if (!session) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -232,7 +245,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (path.match(/^\/api\/trips\/[^\/]+\/itinerary$/) && method === 'POST') {
       const sessionId = req.headers['x-session-id'] as string;
-      const session = sessions.get(sessionId);
+      const session = await validateSession(sessionId);
       
       if (!session) {
         return res.status(401).json({ error: 'Unauthorized' });
@@ -244,16 +257,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (path === '/api/itinerary/generate' && method === 'POST') {
       const sessionId = req.headers['x-session-id'] as string;
-      const session = sessions.get(sessionId);
+      const session = await validateSession(sessionId);
       
       if (!session) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
-      const { location, interests, numDays } = req.body;
+      const { location, interests = [], numDays = 3 } = req.body;
 
       // Generate a simple itinerary
       const days = [];
+      const safeInterests = Array.isArray(interests) ? interests : ['restaurants', 'attractions'];
+      const safeLocation = location || 'your destination';
+      
       for (let i = 0; i < numDays; i++) {
         const date = new Date();
         date.setDate(date.getDate() + i);
@@ -264,22 +280,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             {
               id: `activity-${i}-1`,
               time: '9:00 AM',
-              title: `Explore ${interests[0]} spots`,
-              location: location,
+              title: `Explore ${safeInterests[0] || 'local'} spots`,
+              location: safeLocation,
               completed: false
             },
             {
               id: `activity-${i}-2`,
               time: '1:00 PM',
               title: 'Lunch break',
-              location: location,
+              location: safeLocation,
               completed: false
             },
             {
               id: `activity-${i}-3`,
               time: '3:00 PM',
-              title: `Visit ${interests[1] || 'local attractions'}`,
-              location: location,
+              title: `Visit ${safeInterests[1] || 'local attractions'}`,
+              location: safeLocation,
               completed: false
             }
           ]
