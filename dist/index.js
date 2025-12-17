@@ -1,11 +1,7 @@
-// server/index-prod.ts
+// server/index-vercel.ts
 import fs2 from "node:fs";
 import path2 from "node:path";
 import express2 from "express";
-
-// server/app.ts
-import "dotenv/config";
-import express from "express";
 
 // server/routes.ts
 import { createServer } from "http";
@@ -297,7 +293,7 @@ var interestMapping = {
   "Nature": { terms: ["parks", "nature", "natural attractions"], categories: ["parks", "hiking", "outdoors"] }
 };
 function generateSessionId() {
-  return Math.random().toString(36).substr(2, 32);
+  return Math.random().toString(36).substring(2, 34);
 }
 async function registerRoutes(app2) {
   app2.post("/api/auth/signup", async (req, res) => {
@@ -885,6 +881,8 @@ async function registerRoutes(app2) {
 }
 
 // server/app.ts
+import "dotenv/config";
+import express from "express";
 function log(message, source = "express") {
   const formattedTime = (/* @__PURE__ */ new Date()).toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -926,41 +924,27 @@ app.use((req, res, next) => {
   });
   next();
 });
-async function runApp(setup) {
-  const server = await registerRoutes(app);
-  app.use((err, _req, res, _next) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
-    throw err;
-  });
-  await setup(app, server);
-  const port = parseInt(process.env.PORT || "5000", 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true
-  }, () => {
-    log(`serving on port ${port}`);
-  });
-}
 
-// server/index-prod.ts
-async function serveStatic(app2, server) {
-  const distPath = path2.resolve(import.meta.dirname, "public");
-  if (!fs2.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`
-    );
+// server/index-vercel.ts
+var initialized = false;
+async function initApp() {
+  if (!initialized) {
+    await registerRoutes(app);
+    const distPath = path2.resolve(process.cwd(), "dist/public");
+    if (fs2.existsSync(distPath)) {
+      app.use(express2.static(distPath));
+      app.use("*", (_req, res) => {
+        res.sendFile(path2.resolve(distPath, "index.html"));
+      });
+    }
+    initialized = true;
   }
-  app2.use(express2.static(distPath));
-  app2.use("*", (_req, res) => {
-    res.sendFile(path2.resolve(distPath, "index.html"));
-  });
+  return app;
 }
-(async () => {
-  await runApp(serveStatic);
-})();
+async function handler(req, res) {
+  const expressApp = await initApp();
+  return expressApp(req, res);
+}
 export {
-  serveStatic
+  handler as default
 };
