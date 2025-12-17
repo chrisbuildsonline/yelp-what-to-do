@@ -77,6 +77,13 @@ export default function Onboarding() {
         }
 
         // Save trip to backend
+        console.log('Saving trip with data:', {
+          name: profile.currentTripName,
+          location: profile.country,
+          interests: profile.interests,
+          companions: profile.companions,
+        });
+
         const response = await fetch('/api/trips', {
           method: 'POST',
           headers: {
@@ -91,8 +98,12 @@ export default function Onboarding() {
           }),
         });
 
+        console.log('Trip save response status:', response.status);
+
         if (response.ok) {
-          completeOnboarding();
+          const savedTrip = await response.json();
+          console.log('Trip saved successfully:', savedTrip);
+          await completeOnboarding();
           setLocation('/dashboard');
         } else if (response.status === 401) {
           console.error('Session expired, logging out');
@@ -102,6 +113,7 @@ export default function Onboarding() {
         } else {
           const errorData = await response.json();
           console.error('Failed to save trip:', errorData);
+          alert(`Failed to save trip: ${errorData.error || 'Unknown error'}`);
           setIsProcessing(false);
         }
       } catch (error) {

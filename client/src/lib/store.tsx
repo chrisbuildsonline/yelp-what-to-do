@@ -137,20 +137,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
       if (response.ok) {
         const trips = await response.json();
+        
+        // Convert API response to Trip format
+        const formattedTrips: Trip[] = (trips || []).map((trip: any) => ({
+          id: trip.id,
+          name: trip.name,
+          country: trip.location,
+          interests: trip.interests || [],
+          companions: trip.companions || [],
+          savedPlaces: trip.savedPlaces || [],
+        }));
+
         if (trips && trips.length > 0) {
           // Load the most recent trip
           const mostRecentTrip = trips[trips.length - 1];
           
-          // Convert API response to Trip format
-          const formattedTrips: Trip[] = trips.map((trip: any) => ({
-            id: trip.id,
-            name: trip.name,
-            country: trip.location,
-            interests: trip.interests || [],
-            companions: trip.companions || [],
-            savedPlaces: trip.savedPlaces || [],
-          }));
-
           setProfile(prev => ({
             ...prev,
             trips: formattedTrips,
@@ -159,7 +160,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
             country: mostRecentTrip.location || '',
             interests: Array.isArray(mostRecentTrip.interests) ? mostRecentTrip.interests : [],
             companions: Array.isArray(mostRecentTrip.companions) ? mostRecentTrip.companions : [],
-            isOnboarded: true,
+            isOnboarded: true, // If user has trips, they completed onboarding
+          }));
+        } else {
+          // No trips found - user hasn't completed onboarding yet
+          setProfile(prev => ({
+            ...prev,
+            trips: [],
+            isOnboarded: false,
           }));
         }
       }
@@ -205,21 +213,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  const completeOnboarding = () => {
-    const newTrip: Trip = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: profile.currentTripName,
-      country: profile.country,
-      interests: profile.interests,
-      companions: profile.companions,
-    };
-
+  const completeOnboarding = async () => {
+    // Set onboarded status immediately
     setProfile(prev => ({
       ...prev,
       isOnboarded: true,
-      currentTripId: newTrip.id,
-      trips: [...prev.trips, newTrip],
     }));
+
+    // Reload trips from backend to get the latest data
+    if (sessionId) {
+      await loadTripsFromBackendInternal(sessionId);
+    }
   };
 
   const createNewTrip = () => {
