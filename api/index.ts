@@ -129,6 +129,91 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.json(response.data);
     }
 
+    // Trip routes
+    if (path === '/api/trips' && method === 'POST') {
+      const sessionId = req.headers['x-session-id'] as string;
+      const session = sessions.get(sessionId);
+      
+      if (!session) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const { name, location, interests, companions } = req.body;
+      
+      const { data: trip, error } = await supabase
+        .from('trips')
+        .insert([{
+          user_id: session.userId,
+          name,
+          location,
+          interests: JSON.stringify(interests),
+          companions: JSON.stringify(companions),
+          created_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return res.json({
+        id: trip.id,
+        name: trip.name,
+        location: trip.location,
+        interests: JSON.parse(trip.interests),
+        companions: JSON.parse(trip.companions),
+        createdAt: new Date(trip.created_at)
+      });
+    }
+
+    if (path === '/api/trips' && method === 'GET') {
+      const sessionId = req.headers['x-session-id'] as string;
+      const session = sessions.get(sessionId);
+      
+      if (!session) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const { data: trips } = await supabase
+        .from('trips')
+        .select('*')
+        .eq('user_id', session.userId)
+        .order('created_at', { ascending: false });
+
+      const formattedTrips = (trips || []).map(trip => ({
+        id: trip.id,
+        name: trip.name,
+        location: trip.location,
+        interests: JSON.parse(trip.interests || '[]'),
+        companions: JSON.parse(trip.companions || '[]'),
+        createdAt: new Date(trip.created_at)
+      }));
+
+      return res.json(formattedTrips);
+    }
+
+    // Stats routes
+    if (path === '/api/stats/users' && method === 'GET') {
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, username, created_at')
+        .order('created_at', { ascending: false });
+
+      return res.json(users || []);
+    }
+
+    if (path === '/api/recommendations' && method === 'POST') {
+      const { interests, location, companions } = req.body;
+      
+      // Simple AI recommendation logic
+      const recommendations = [
+        `Based on your interest in ${interests[0]}, I recommend exploring local ${interests[0]} spots in ${location}.`,
+        `Since you're traveling with ${companions.length} companions, consider group-friendly activities.`,
+        `${location} has great options for ${interests.slice(0, 2).join(' and ')}.`
+      ];
+
+      return res.json({ recommendations });
+    }
+
     // Default response
     return res.status(404).json({ error: 'Route not found' });
 
