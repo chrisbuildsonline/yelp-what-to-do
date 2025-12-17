@@ -187,9 +187,9 @@ export default function TripPlanner() {
           tripId: profile.currentTripId,
           numDays: finalNumDays,
           location: profile.country,
-          interests: profile.interests,
+          interests: profile.interests || [],
           // Only send essential data - strip out images and unnecessary fields
-          businesses: cachedBusinesses.map(b => ({
+          businesses: (cachedBusinesses || []).map(b => ({
             id: b.id,
             name: b.name,
             rating: b.rating,

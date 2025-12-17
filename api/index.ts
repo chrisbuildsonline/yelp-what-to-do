@@ -264,6 +264,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       const { location, interests = [], numDays = 3 } = req.body;
+      
+      console.log('Generate itinerary request:', { location, interests, numDays });
 
       // Generate a simple itinerary
       const days = [];
@@ -302,7 +304,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
-      return res.json({ days });
+      return res.json({ itinerary: days });
     }
 
     // Default response
