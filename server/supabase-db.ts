@@ -288,8 +288,12 @@ export class SupabaseDB {
         .from('users')
         .select('*', { count: 'exact', head: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error getting user count:', error);
+        throw error;
+      }
 
+      console.log('User count from Supabase:', count);
       return count || 0;
     } catch (error) {
       console.error('Error getting user count:', error);

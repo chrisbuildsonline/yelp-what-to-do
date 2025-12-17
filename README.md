@@ -252,8 +252,6 @@ NODE_ENV=production
 - **Docker**: Dockerfile included
 - **Vercel**: Frontend only (backend separate)
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions.
-
 ## 🧪 Testing
 
 ### Manual Testing Checklist
@@ -315,7 +313,6 @@ npm run check
 
 - [QUICKSTART.md](QUICKSTART.md) - 5-minute setup guide
 - [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) - Technical details
-- [DEPLOYMENT.md](DEPLOYMENT.md) - Deployment guide
 - [STATUS.md](STATUS.md) - Project status
 - [LICENSE](LICENSE) - MIT License
 

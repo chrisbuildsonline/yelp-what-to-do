@@ -11,6 +11,7 @@ import { AuthModal } from "@/components/auth-modal";
 
 export default function Landing() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [howItWorksOpen, setHowItWorksOpen] = useState(false);
   const [userCount, setUserCount] = useState<number>(0);
 
   useEffect(() => {
@@ -105,7 +106,12 @@ export default function Landing() {
                   Start Planning
                   <ArrowRight className="ml-2" size={20} />
                 </Button>
-                <Button size="lg" variant="outline" className="h-14 px-8 rounded-full text-lg bg-white/50 backdrop-blur-sm border-2 hover:bg-white">
+                <Button 
+                  onClick={() => setHowItWorksOpen(true)}
+                  size="lg" 
+                  variant="outline" 
+                  className="h-14 px-8 rounded-full text-lg bg-white/50 backdrop-blur-sm border-2 hover:bg-white"
+                >
                   How it works
                 </Button>
               </motion.div>
@@ -129,11 +135,11 @@ export default function Landing() {
                   </span>
                 </div>
                 <div className="h-4 w-px bg-border" />
-                <div className="flex items-center gap-1">
+                {/* <div className="flex items-center gap-1">
                   <Star className="fill-yellow-400 text-yellow-400" size={16} />
                   <span className="text-foreground">4.9/5</span>
                   <span>rating</span>
-                </div>
+                </div> */}
               </motion.div>
             </motion.div>
 
@@ -225,9 +231,7 @@ export default function Landing() {
                     className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-6 text-white">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-white mb-4">
-                      <MapPin size={24} />
-                    </div>
+                
                     <h3 className="text-xl font-bold mb-2">Trusted Local Insights</h3>
                     <p className="text-white/90 text-sm leading-relaxed">
                       Explore with confidence using up-to-the-minute ratings, photos, and honest reviews from the community.
@@ -244,9 +248,7 @@ export default function Landing() {
                     className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-6 text-white">
-                    <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center text-white mb-4">
-                      <Compass size={24} />
-                    </div>
+                
                     <h3 className="text-xl font-bold mb-2">Effortless Planning</h3>
                     <p className="text-white/90 text-sm leading-relaxed">
                       Save your must-visits and let us weave them into a seamless itinerary for your perfect day out.
@@ -289,6 +291,100 @@ export default function Landing() {
       </footer>
 
       <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} />
+      
+      {/* How It Works Modal */}
+      {howItWorksOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setHowItWorksOpen(false)}>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl p-8 md:p-12 max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+          >
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-3xl md:text-4xl font-bold">How It Works</h2>
+              <button 
+                onClick={() => setHowItWorksOpen(false)}
+                className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-8">
+              {/* Step 1 */}
+              <div className="flex gap-6">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold">
+                  1
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2">Sign Up & Tell Us About Your Trip</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Create your free account and share where you're going, what you're interested in, and who you're traveling with. The more we know, the better your recommendations!
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 2 */}
+              <div className="flex gap-6">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold">
+                  2
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2">Get Personalized Recommendations</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Our AI combines your preferences with real Yelp data to suggest the perfect spots. Whether you're into fine dining, street food, museums, or nightlife - we've got you covered.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 3 */}
+              <div className="flex gap-6">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold">
+                  3
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2">Explore & Save Your Favorites</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Browse through curated recommendations with ratings, reviews, and photos from Yelp. Save the places you love to your trip for easy access later.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 4 */}
+              <div className="flex gap-6">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold">
+                  4
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold mb-2">Generate Your Itinerary</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Turn your saved places into a day-by-day itinerary. We'll organize everything by time and location, so you can focus on enjoying your trip!
+                  </p>
+                </div>
+              </div>
+
+              {/* CTA */}
+              <div className="pt-6 border-t">
+                <Button 
+                  onClick={() => {
+                    setHowItWorksOpen(false);
+                    setAuthModalOpen(true);
+                  }}
+                  size="lg"
+                  className="w-full h-14 rounded-full text-lg font-bold"
+                >
+                  Get Started Now
+                  <ArrowRight className="ml-2" size={20} />
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }
