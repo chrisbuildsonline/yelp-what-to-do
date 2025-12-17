@@ -22,22 +22,34 @@ Planning trips with friends, family, or kids? This app uses **Yelp Fusion API** 
 
 ---
 
-## 🚀 Quick Start (5 Minutes)
+## 🚀 Quick Start
 
 ### Prerequisites
 - **Node.js 20+** ([Download](https://nodejs.org/))
 - **Yelp API key** ([Get free key](https://www.yelp.com/developers/v3/manage_app))
 - **Supabase account** ([Sign up free](https://supabase.com))
 
-### Step 1: Clone & Install
+### Local Development
 
 ```bash
+# 1. Clone and install
 git clone <your-repo-url>
-cd yelp-ai-tour-guide-main
+cd yelp-what-to-do
 npm install
+
+# 2. Set up environment variables (see below)
+cp .env.example .env
+# Edit .env with your API keys
+
+# 3. Run development servers
+npm run dev
+
+# This starts:
+# - Frontend on http://localhost:3000
+# - API server on http://localhost:3001
 ```
 
-### Step 2: Get API Keys
+### Get API Keys
 
 #### Yelp API Keys
 1. Go to [Yelp Developers](https://www.yelp.com/developers/v3/manage_app)
@@ -482,6 +494,44 @@ If you need to reset the database:
 - ✅ Multiple search strategies for better results
 - ✅ Proper error handling
 - ✅ Yelp attribution and branding
+
+---
+
+## 🚀 Deployment
+
+### Deploy to Vercel (Recommended)
+
+This app is optimized for Vercel deployment with serverless functions.
+
+**Quick Deploy:**
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/chrisbuildsonline/yelp-what-to-do)
+
+**Manual Setup:**
+
+1. Push your code to GitHub
+2. Go to [Vercel Dashboard](https://vercel.com/new)
+3. Import your repository
+4. Configure:
+   - **Framework Preset**: Vite
+   - **Build Command**: `npm run build` (default)
+   - **Output Directory**: `dist/public` (default)
+5. Add environment variables:
+   ```
+   YELP_API_KEY=your_key
+   YELP_CLIENT_ID=your_client_id
+   SUPABASE_URL=your_url
+   SUPABASE_ANON_KEY=your_key
+   NODE_ENV=production
+   ```
+6. Deploy!
+
+**How it works:**
+- Frontend: Static Vite build served from `dist/public/`
+- Backend: Serverless functions in `api/` folder handle all `/api/*` routes
+- Database: Supabase (already cloud-hosted)
+
+See [VERCEL-DEPLOYMENT.md](VERCEL-DEPLOYMENT.md) for detailed instructions.
 
 ---
 
