@@ -311,7 +311,7 @@ export default function Dashboard() {
     type: business.categories[0]?.title || 'Place',
     rating: business.rating,
     reviews: business.review_count,
-    image: [cafeImg, hikingImg, burgerImg, museumImg, diningImg][idx % 5],
+    image: business.image_url || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop',
     tags: business.categories.slice(0, 3).map(c => c.title),
     distance: `${(business.distance / 1609).toFixed(1)} mi`,
     price: business.price || '$',
