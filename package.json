@@ -20,10 +20,11 @@
     "express"
   ],
   "scripts": {
-    "dev:client": "vite dev --port 5002",
-    "dev": "PORT=5002 NODE_ENV=development tsx server/index-dev.ts",
-    "build": "vite build && esbuild server/index-prod.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/index.js",
-    "start": "PORT=5002 NODE_ENV=production node dist/index.js",
+    "dev:client": "vite dev",
+    "dev:api": "API_PORT=3001 NODE_ENV=development tsx server/index-api.ts",
+    "dev": "npm run dev:api & npm run dev:client",
+    "build": "vite build",
+    "start": "vite preview --port 3000",
     "check": "tsc"
   },
   "notes": "removed framer motion dependency",
@@ -112,6 +113,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@types/ws": "^8.5.13",
+    "@vercel/node": "^5.5.15",
     "@vitejs/plugin-react": "^5.0.4",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
