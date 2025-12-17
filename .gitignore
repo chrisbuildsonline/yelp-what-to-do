@@ -6,3 +6,5 @@ dist
 .history
 .kiro
 .hackathon
+.vercel
+vercel.json

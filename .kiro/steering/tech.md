@@ -16,17 +16,14 @@
 - **Express** - Web framework
 - **TypeScript** - Type safety
 - **Bcrypt** - Password hashing
-- **OpenAI SDK** - AI recommendations
 - **Axios** - HTTP client for API calls
 
 ## External APIs
 - **Yelp Fusion API** - Business search and details (required)
-- **OpenAI API** - AI recommendations (optional, has mock fallback)
 
 ## Database
-- **In-Memory** - Development (using Map-based storage)
-- **PostgreSQL** - Production ready (Drizzle ORM configured)
-- **Drizzle ORM** - Type-safe database queries
+- **Supabase** - PostgreSQL-based cloud database (required)
+- **@supabase/supabase-js** - Supabase client library
 
 ## Build & Development
 
@@ -47,8 +44,6 @@ npm run build
 # Start production server
 npm start
 
-# Database migrations (when using PostgreSQL)
-npm run db:push
 ```
 
 ### Development Setup
@@ -68,15 +63,13 @@ npm run db:push
 YELP_API_KEY=your_yelp_api_key
 YELP_CLIENT_ID=your_yelp_client_id
 
-# Optional
-OPENAI_API_KEY=your_openai_api_key
-
 # Server
 PORT=5002
 NODE_ENV=development|production
 
-# Database (future PostgreSQL)
-DATABASE_URL=postgresql://user:password@localhost:5432/yelp_app
+# Database (Required)
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
 ## Code Quality

@@ -23,9 +23,9 @@ yelp-ai-tour-guide/
 ├── server/                   # Express backend
 │   ├── routes.ts            # API route handlers
 │   ├── memory-db.ts         # In-memory database implementation
+│   ├── supabase-db.ts       # Supabase database implementation
 │   ├── storage.ts           # File storage utilities
 │   ├── app.ts               # Express app configuration
-│   ├── db.ts                # Database connection (PostgreSQL ready)
 │   ├── index-dev.ts         # Development server entry
 │   └── index-prod.ts        # Production server entry
 │
@@ -45,7 +45,6 @@ yelp-ai-tour-guide/
 │   ├── vite.config.ts       # Vite build configuration
 │   ├── tailwind.config.js   # Tailwind CSS configuration
 │   ├── postcss.config.js    # PostCSS configuration
-│   ├── drizzle.config.ts    # Drizzle ORM configuration
 │   ├── components.json      # shadcn/ui configuration
 │   └── .env                 # Environment variables
 │
@@ -143,7 +142,7 @@ yelp-ai-tour-guide/
 - express - Web framework
 - bcrypt - Password hashing
 - axios - HTTP client
-- drizzle-orm - Database ORM
+- @supabase/supabase-js - Supabase client
 
 ### Development
 - typescript - Type checking

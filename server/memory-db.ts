@@ -23,12 +23,11 @@ export class MemoryDB {
       createdAt: new Date(),
     };
     this.users.set(id, user);
-    const { password: _, ...userWithoutPassword } = user;
-    return userWithoutPassword as User;
+    return user;
   }
 
   async getUserByUsername(username: string): Promise<StoredUser | undefined> {
-    return Array.from(this.users.values()).find(u => u.username === username);
+    return Array.from(this.users.values()).find((u: StoredUser) => u.username === username);
   }
 
   async getUserById(id: string): Promise<StoredUser | undefined> {

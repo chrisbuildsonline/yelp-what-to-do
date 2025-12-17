@@ -55,7 +55,7 @@ This software is provided for educational and demonstration purposes. Users are 
 
 This software:
 - Stores user data in-memory by default (data is lost on restart)
-- Can be configured to use PostgreSQL for persistent storage
+- Can be configured to use Supabase for persistent storage
 - Does not collect or transmit user data to third parties beyond the integrated APIs
 - Requires users to review and comply with GDPR, CCPA, and other privacy regulations
 

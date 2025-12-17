@@ -1,18 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
 import { User, Trip, SavedPlace } from "@shared/schema";
 
-interface StoredUser extends User {
-  password: string;
-}
+// User already includes password from schema, so we can use it directly
+type StoredUser = User;
 
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error('Supabase credentials not configured');
+  throw new Error('❌ Supabase credentials not configured! Please set SUPABASE_URL and SUPABASE_ANON_KEY in .env file');
 }
 
-const supabase = createClient(supabaseUrl || '', supabaseKey || '');
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+console.log('✅ Supabase connected:', supabaseUrl);
 
 export class SupabaseDB {
   // User operations
