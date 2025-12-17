@@ -217,6 +217,78 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.json({ recommendations });
     }
 
+    // Itinerary routes
+    if (path.match(/^\/api\/trips\/[^\/]+\/itinerary$/) && method === 'GET') {
+      const sessionId = req.headers['x-session-id'] as string;
+      const session = sessions.get(sessionId);
+      
+      if (!session) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      // Return empty itinerary for now
+      return res.json({ days: [] });
+    }
+
+    if (path.match(/^\/api\/trips\/[^\/]+\/itinerary$/) && method === 'POST') {
+      const sessionId = req.headers['x-session-id'] as string;
+      const session = sessions.get(sessionId);
+      
+      if (!session) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      // Save itinerary (simplified - just return success)
+      return res.json({ success: true });
+    }
+
+    if (path === '/api/itinerary/generate' && method === 'POST') {
+      const sessionId = req.headers['x-session-id'] as string;
+      const session = sessions.get(sessionId);
+      
+      if (!session) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const { location, interests, numDays } = req.body;
+
+      // Generate a simple itinerary
+      const days = [];
+      for (let i = 0; i < numDays; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() + i);
+        
+        days.push({
+          date: date.toISOString().split('T')[0],
+          activities: [
+            {
+              id: `activity-${i}-1`,
+              time: '9:00 AM',
+              title: `Explore ${interests[0]} spots`,
+              location: location,
+              completed: false
+            },
+            {
+              id: `activity-${i}-2`,
+              time: '1:00 PM',
+              title: 'Lunch break',
+              location: location,
+              completed: false
+            },
+            {
+              id: `activity-${i}-3`,
+              time: '3:00 PM',
+              title: `Visit ${interests[1] || 'local attractions'}`,
+              location: location,
+              completed: false
+            }
+          ]
+        });
+      }
+
+      return res.json({ days });
+    }
+
     // Default response
     return res.status(404).json({ error: 'Route not found' });
 
